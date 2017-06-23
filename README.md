@@ -44,4 +44,4 @@ int maincalc() {
 }
 ```
 
-That is, the code writer should know nothing about of how the code is fed with the input data (`height`, `vx` and `vy` initialization) or how the output is provided (it may be saved to the datafiles or output to the screen or both or enything else). All this work lies upon the developed shell and libraries.
+That is, the code writer should know nothing about of how the code is fed with the input data (`height`, `vx` and `vy` initialization) or how the output is processed (it may be saved to the datafiles or output to the screen or both or enything else). All this work lies upon the developed shell and libraries.
