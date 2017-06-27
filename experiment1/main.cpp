@@ -5,9 +5,8 @@ int main(int argc, char** argv) {
 }
 
 int maincalc() {
-    double sum = input::a + input::b;
     double mul = 5*input::b;
-    output::a = sum;
+    output::a = input::a + input::b;
     output::c = mul;
     return 0;
 }

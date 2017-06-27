@@ -1,6 +1,8 @@
 #ifndef _DELTA_P
 #define _DELTA_P
 
+#include <iostream>
+
 extern int registerInput(const char*, const char*, void* , void*);
 extern int registerOutput(const char*, const char*, void* , void*);
 extern int execute(int (*)(), void*);
@@ -31,11 +33,12 @@ class OutputDouble {
         }
         OutputDouble(double x) {
             val = x;
-            updateOutput(index, data);
         }
-        OutputDouble(const OutputDouble& src) {
+        OutputDouble(const OutputDouble&) = delete;
+        OutputDouble& operator=(const OutputDouble &src) {
             val = src.val;
             updateOutput(index, data);
+            return *this;
         }
 };
 
