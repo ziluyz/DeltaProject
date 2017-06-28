@@ -8,6 +8,7 @@ namespace input {
 namespace output {
     OutputDouble a("a");
     OutputDouble c("c");
+    OutputDouble r("r");
 }
 
 int maincalc();

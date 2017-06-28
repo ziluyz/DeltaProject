@@ -31,10 +31,12 @@ class OutputDouble {
         OutputDouble(const char* name) {
             index = registerOutput(name, "double", &val, &data);
         }
-        OutputDouble(double x) {
-            val = x;
-        }
         OutputDouble(const OutputDouble&) = delete;
+        OutputDouble& operator=(double x) {
+            val = x;
+            updateOutput(index, data);
+            return *this;
+        }
         OutputDouble& operator=(const OutputDouble &src) {
             val = src.val;
             updateOutput(index, data);
