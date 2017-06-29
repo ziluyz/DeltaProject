@@ -4,7 +4,8 @@
 #
 #-------------------------------------------------
 
-QT       += widgets
+QT       += widgets \
+            core
 
 QT       -= gui
 
@@ -25,11 +26,13 @@ DEFINES += QT_DEPRECATED_WARNINGS
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
-        delpro.cpp
+        delpro.cpp \
+    mainwindow.cpp
 
 HEADERS += \
         delpro.h \
-        delpro_global.h 
+        delpro_global.h \ 
+    mainwindow.h
 
 unix {
     target.path = /usr/lib

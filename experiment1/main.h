@@ -8,7 +8,7 @@ namespace input {
 namespace output {
     OutputDouble a("a");
     OutputDouble c("c");
-    OutputDouble r("r");
+    OutputDoubleVector r("r");
 }
 
 int maincalc();
