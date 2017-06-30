@@ -34,7 +34,7 @@ int maincalc() {
   while (y > 0) {
     t += 0.1;
     x = input::vx * t;
-    y = height + vy*t - 9.8*t*t/2;
+    y = input::height + input::vy*t - 9.8*t*t/2;
     output::trajectory.push_back(std::pair<double,double>(x, y));
   }
   output::time = t;
