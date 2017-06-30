@@ -39,7 +39,7 @@ int maincalc() {
   }
   output::time = t;
   double vfy = input::vy - 9.8*t;
-  output::speeed = std::sqrt(input::vx*input::vx + vfy*vfy);
+  output::speed = std::sqrt(input::vx*input::vx + vfy*vfy);
   return 0; // normal termination
 }
 ```

@@ -137,4 +137,38 @@ void parseInput(QString &filename, Data &data) {
         }
         if (!ok) throw QString("Error parsing value of ") + inv + " from " + value;
     }
+
+    auto output = root.elementsByTagName("Output").at(0).childNodes();
+
+    for (int i = 0; i < data.outputNames.size(); i++) {
+        auto inv = data.inputNames[i];
+        int ind = find(output, inv);
+        if (ind == -1) throw QString("No records in ") + filename + " for output " + inv;
+        auto el = output.at(ind).toElement();
+        data.outputDescriptions.push_back(el.attribute("desc"));
+        data.outputUnits.push_back(el.attribute("unit"));
+    }
+
+    auto soutputs = root.elementsByTagName("ScreenOutput").at(0).childNodes();
+    for (int i = 0; i < soutputs.size(); i++) {
+        auto sout = soutputs.at(i);
+        data.screenOutputs.emplace_back();
+        auto& wgt = data.screenOutputs.back();
+        auto name = sout.nodeName();
+        if (name == "TextField") wgt.type = ScreenTypes::TEXTFIELD;
+        else if (name == "Plot") wgt.type = ScreenTypes::PLOT;
+        else throw QString("Unknown ScreenOutput type ") + sout.nodeName();
+
+        auto attrmap = sout.attributes();
+        for (int i = 0; i < attrmap.size(); i++) {
+            wgt.attributes.insert(attrmap.item(i).nodeName(),attrmap.item(i).nodeValue());
+        }
+
+        auto content = sout.childNodes();
+        for (int j = 0; j < content.size(); j++) {
+            auto var = content.at(j);
+            wgt.items.emplace_back();
+            auto item = wgt.items.back();
+        }
+    }
 }
