@@ -1,0 +1,34 @@
+<?xmls version="1.0" encoding="utf-8"?>
+<Project name="gravity_motion">
+    <Input>
+        <Var name="h" type="double" desc="Height" unit="m">
+            1
+        </Var>
+        <Var name="vx" type="double" desc="Horizontal velocity" unit="m/s">
+            1
+		</Var>
+        <Var name="vy" type="double" desc="Vertical velocity" unit="m/s">
+            0
+		</Var>
+    </Input>
+    <Output>
+        <Var name="speed" type="double" desc="Final speed" unit="m/s"/>
+        <Var name="time" type="double" desc="Motion duration" unit="s"/>
+        <Var name="traj_x" type="double_vector" desc="x-coordinate" unit="m"/>
+        <Var name="traj_y" type="double_vector" desc="y-coordinate" unit="m"/>
+    </Output>
+    <ScreenOutput>
+        <TextField title="Input parameters" position="2,2:1,1:1,1">
+            <InputVar name="h"/>
+            <InputVar name="vx"/>
+            <InputVar name="vy"/>
+        </TextField>
+        <TextField title="Results" position="2,2:2,1:1,1">
+            <OutputVar name="speed" />
+            <OutputVar name="time" />
+        </TextField>
+        <Plot title="Undulator" position="1,2:1,2:1,1">
+            <OutputVar name="traj_y" xname="traj_x"/>
+        </Plot>
+    </ScreenOutput>
+</Project>

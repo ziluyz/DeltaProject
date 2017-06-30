@@ -1,8 +1,8 @@
 #include "mainwindow.h"
 
-MainWindow::MainWindow(void *data) : QWidget(), needUpdate(false)
+MainWindow::MainWindow(Data *data) : QWidget(), needUpdate(false)
 {
-    this->data = static_cast<Data*>(data);
+    this->data = data;
     label = new QLabel(this);
 }
 

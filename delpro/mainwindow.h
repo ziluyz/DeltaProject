@@ -12,7 +12,7 @@ class MainWindow : public QWidget
 private:
     Data *data;
 public:
-    explicit MainWindow(void *data);
+    explicit MainWindow(Data *data);
     bool needUpdate;
     QLabel *label;
 protected:

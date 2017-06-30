@@ -6,7 +6,6 @@
 #include <QtWidgets>
 #include "mainwindow.h"
 
-#include <string>
 #include <vector>
 
 int registerInput(const char* name, const char* type, void *var, void *pdata);
@@ -23,12 +22,18 @@ class MainWindow;
 
 struct Data {
     MainWindow *window;
+
     vector<QString> inputNames;
     vector<void*> inputVars;
     vector<Types> inputTypes;
+    vector<QString> inputDescriptions;
+    vector<QString> inputUnits;
+
     vector<QString> outputNames;
     vector<void*> outputVars;
     vector<Types> outputTypes;
+    vector<QString> outputDescriptions;
+    vector<QString> outputUnits;
     vector<bool> outputIsNew;
     vector<bool> outputIsValid;
 };
@@ -41,5 +46,7 @@ public:
     CalcThread(int (*f)()) : QThread() {fun = f;}
     void run() override {fun();}
 };
+
+void parseInput(QString &filename, Data &data);
 
 #endif // DELPRO_H
