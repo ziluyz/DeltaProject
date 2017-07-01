@@ -17,9 +17,18 @@ enum class ScreenTypes {TEXTFIELD, PLOT};
 
 using namespace std;
 
+struct Variable {
+    QString name;
+    void *mem;
+    Types type;
+    QString desc;
+    QString unit;
+    bool isNew;
+    bool isValid;
+};
+
 struct OutputItem {
-    bool isOutput;
-    int index;
+    Variable *mem;
     QHash<QString,QString> attributes;
 };
 
@@ -33,21 +42,8 @@ class MainWindow;
 
 struct Data {
     MainWindow *window;
-
-    vector<QString> inputNames;
-    vector<void*> inputVars;
-    vector<Types> inputTypes;
-    vector<QString> inputDescriptions;
-    vector<QString> inputUnits;
-
-    vector<QString> outputNames;
-    vector<void*> outputVars;
-    vector<Types> outputTypes;
-    vector<QString> outputDescriptions;
-    vector<QString> outputUnits;
-    vector<bool> outputIsNew;
-    vector<bool> outputIsValid;
-
+    vector<Variable> inputVars;
+    vector<Variable> outputVars;
     vector<ScreenOutput> screenOutputs;
 };
 
@@ -60,6 +56,7 @@ public:
     void run() override {fun();}
 };
 
+int registerVar(QString name, QString type, void *mem, vector<Variable> &container);
 void parseInput(QString &filename, Data &data);
 
 #endif // DELPRO_H

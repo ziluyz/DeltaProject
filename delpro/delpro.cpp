@@ -6,41 +6,19 @@
 using namespace std;
 
 int registerInput(const char* name, const char* type, void *var, void *pdata) {
-    Data *&data = *static_cast<Data**>(pdata);
+    auto *&data = *static_cast<Data**>(pdata);
     if (data == nullptr) data = new Data;
-
-    data->inputNames.push_back(name);
-    string stype(type);
-    if (stype == "int") data->inputTypes.push_back(Types::INT);
-    else if (stype == "double") data->inputTypes.push_back(Types::DOUBLE);
-    else if (stype == "intvector") data->inputTypes.push_back(Types::INTVECTOR);
-    else if (stype == "doublevector") data->inputTypes.push_back(Types::DOUBLEVECTOR);
-    else throw QString("Unknown input type");
-    data->inputVars.push_back(var);
-
-    return data->inputNames.size() - 1;
+    return registerVar(name, type, var, data->inputVars);
 }
 
 int registerOutput(const char* name, const char* type, void *var, void *pdata) {
-    Data *&data = *static_cast<Data**>(pdata);
+    auto *&data = *static_cast<Data**>(pdata);
     if (data == nullptr) data = new Data;
-
-    data->outputNames.push_back(name);
-    string stype(type);
-    if (stype == "int") data->outputTypes.push_back(Types::INT);
-    else if (stype == "double") data->outputTypes.push_back(Types::DOUBLE);
-    else if (stype == "intvector") data->outputTypes.push_back(Types::INTVECTOR);
-    else if (stype == "doublevector") data->outputTypes.push_back(Types::DOUBLEVECTOR);
-    else throw QString("Unknown output type");
-    data->outputVars.push_back(var);
-    data->outputIsNew.push_back(false);
-    data->outputIsValid.push_back(false);
-
-    return data->outputNames.size() - 1;
+    return registerVar(name, type, var, data->outputVars);
 }
 
 int execute(int argc, char** argv, int (*f)(), void* data) {
-    Data &d = *static_cast<Data*>(data);
+    auto &d = *static_cast<Data*>(data);
     QString fname("input.ixml");
     if (argc > 1) fname = argv[1];
     try {
@@ -67,14 +45,28 @@ int execute(int argc, char** argv, int (*f)(), void* data) {
 }
 
 void updateOutput(int index, void *data) {
-    Data &d = *static_cast<Data*>(data);
-    d.outputIsNew[index] = true;
+    auto &d = *static_cast<Data*>(data);
+    d.outputVars[index].isNew = true;
 }
 
 void validateOutput(int index, bool isValid, void *data) {
-    Data &d = *static_cast<Data*>(data);
-    d.outputIsValid[index] = isValid;
+    auto &d = *static_cast<Data*>(data);
+    d.outputVars[index].isValid = isValid;
     if (d.window!=nullptr) d.window->needUpdate = d.window->needUpdate || isValid;
+}
+
+int registerVar(QString name, QString type, void *mem, vector<Variable> &container) {
+    container.emplace_back();
+    auto& item = container.back();
+    item.name = name;
+    if (type == "int") item.type = Types::INT;
+    else if (type == "double") item.type = Types::DOUBLE;
+    else if (type == "intvector") item.type = Types::INTVECTOR;
+    else if (type == "doublevector") item.type = Types::DOUBLEVECTOR;
+    else throw QString("Unknown input type");
+    item.mem = mem;
+
+    return container.size() - 1;
 }
 
 void parseInput(QString &filename, Data &data) {
@@ -101,26 +93,25 @@ void parseInput(QString &filename, Data &data) {
     };
 
     auto input = root.elementsByTagName("Input").at(0).childNodes();
-
-    for (int i = 0; i < data.inputNames.size(); i++) {
-        auto inv = data.inputNames[i];
-        int ind = find(input, inv);
-        if (ind == -1) throw QString("No input for ") + inv;
+    for (auto &var : data.inputVars) {
+        int ind = find(input, var.name);
+        if (ind == -1) throw QString("No input for ") + var.name;
         auto el = input.at(ind).toElement();
-        data.inputDescriptions.push_back(el.attribute("desc"));
-        data.inputUnits.push_back(el.attribute("unit"));
+        var.desc = el.attribute("desc");
+        var.unit = el.attribute("unit");
+        var.isNew = var.isValid = true;
         bool ok;
         auto value = el.firstChild().nodeValue();
-        switch (data.inputTypes[i]) {
+        switch (var.type) {
         case Types::INT:
-            *static_cast<int*>(data.inputVars[i])=value.toInt(&ok);
+            *static_cast<int*>(var.mem)=value.toInt(&ok);
             break;
         case Types::DOUBLE:
-            *static_cast<double*>(data.inputVars[i])=value.toDouble(&ok);
+            *static_cast<double*>(var.mem)=value.toDouble(&ok);
             break;
         case Types::INTVECTOR: {
             auto list = value.split(QRegExp("\\s+"));
-            auto &vec = *static_cast<vector<int>*>(data.inputVars[i]);
+            auto &vec = *static_cast<vector<int>*>(var.mem);
             for (auto v : list) {
                 vec.push_back(v.toInt(&ok));
                 if (!ok) break;
@@ -128,37 +119,33 @@ void parseInput(QString &filename, Data &data) {
             break;}
         case Types::DOUBLEVECTOR: {
             auto list = value.split(QRegExp("\\s+"));
-            auto &vec = *static_cast<vector<double>*>(data.inputVars[i]);
+            auto &vec = *static_cast<vector<double>*>(var.mem);
             for (auto v : list) {
                 vec.push_back(v.toDouble(&ok));
                 if (!ok) break;
             }
             break;}
         }
-        if (!ok) throw QString("Error parsing value of ") + inv + " from " + value;
+        if (!ok) throw QString("Error parsing value of ") + var.name + " from " + value;
     }
 
     auto output = root.elementsByTagName("Output").at(0).childNodes();
-
-    for (int i = 0; i < data.outputNames.size(); i++) {
-        auto inv = data.outputNames[i];
-        int ind = find(output, inv);
-        if (ind == -1) throw QString("No records in ") + filename + " for output " + inv;
+    for (auto &var : data.outputVars) {
+        int ind = find(output, var.name);
+        if (ind == -1) throw QString("No records in ") + filename + " for output " + var.name;
         auto el = output.at(ind).toElement();
-        data.outputDescriptions.push_back(el.attribute("desc"));
-        data.outputUnits.push_back(el.attribute("unit"));
+        var.desc = el.attribute("desc");
+        var.unit = el.attribute("unit");
+        var.isNew = var.isValid = false;
     }
 
     auto findItem = [&data](QString name, bool isOutput) {
-        int len = data.inputNames.size();
-        if (isOutput) len = data.outputNames.size();
-        for (int i = 0; i < len; i++) {
-            if (isOutput) {
-                if (data.outputNames[i] == name) return i;
-            }
-            else if (data.inputNames[i] == name) return i;
+        auto vars = &data.inputVars;
+        if (isOutput) vars = &data.outputVars;
+        for (auto& var : *vars) {
+           if (var.name == name) return &var;
         }
-        return -1;
+        return static_cast<Variable*>(nullptr);
     };
 
     auto soutputs = root.elementsByTagName("ScreenOutput").at(0).childNodes();
@@ -178,13 +165,15 @@ void parseInput(QString &filename, Data &data) {
 
         auto content = sout.childNodes();
         for (int j = 0; j < content.size(); j++) {
-            auto var = content.at(j);
+            auto rec = content.at(j);
             wgt.items.emplace_back();
-            auto &item = wgt.items.back();
-            item.isOutput = true;
-            if (var.nodeName() == "InputVar") item.isOutput = false;
-            item.index = findItem(var.toElement().attribute("name"), item.isOutput);
-            attrmap = var.attributes();
+            OutputItem &item = wgt.items.back();
+            bool isOutput = true;
+            if (rec.nodeName() == "InputVar") isOutput = false;
+            item.mem = findItem(rec.toElement().attribute("name"), isOutput);
+            if (item.mem == nullptr) throw QString("Cannot find variable '") +
+                    rec.toElement().attribute("name") + "' for ScreenOutput '" + name + "'";
+            attrmap = rec.attributes();
             for (int k = 0; k < attrmap.size(); k++) {
                 item.attributes.insert(attrmap.item(k).nodeName(), attrmap.item(k).nodeValue());
             }

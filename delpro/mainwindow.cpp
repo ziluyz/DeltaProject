@@ -17,41 +17,26 @@ void MainWindow::timerEvent(QTimerEvent *event) {
         auto &lbl = *static_cast<QLabel*>(content[i]);
         auto &sout = data->screenOutputs[i];
         QString output("");
-        for (int j = 0; j < sout.items.size(); j++) {
-            auto &item = sout.items[j];
-            QString name;
-            Types type;
-            void* var;
-            if (!item.isOutput) {
-                name = data->inputNames[item.index];
-                type = data->inputTypes[item.index];
-                var = data->inputVars[item.index];
-            }
-            else if (data->outputIsValid[item.index]) {
-
-                name = data->outputNames[item.index];
-                type = data->outputTypes[item.index];
-                var = data->outputVars[item.index];
-            }
-            else continue;
-            switch(type) {
+        for (auto &item : sout.items) {
+            if (!item.mem->isValid) continue;
+            switch(item.mem->type) {
             case Types::INT:
-                output.append(name + " = " + QString::number(*static_cast<int*>(var)) + "\n");
+                output.append(item.mem->name + " = " + QString::number(*static_cast<int*>(item.mem->mem)) + "\n");
                 break;
             case Types::DOUBLE:
-                output.append(name + " = " + QString::number(*static_cast<double*>(var)) + "\n");
+                output.append(item.mem->name + " = " + QString::number(*static_cast<double*>(item.mem->mem)) + "\n");
                 break;
             case Types::INTVECTOR: {
-                output.append("Vector " + name + " : ");
-                auto &vec = *static_cast<vector<int>*>(var);
+                output.append("Vector " + item.mem->name + " : ");
+                auto &vec = *static_cast<vector<int>*>(item.mem->mem);
                 for (auto d : vec) output.append(QString::number(d) + ", ");
                 output.truncate(output.size() - 2);
                 output.append("\n");
                 break;
             }
             case Types::DOUBLEVECTOR: {
-                output.append("Vector " + name + " : ");
-                auto &vec = *static_cast<vector<double>*>(var);
+                output.append("Vector " + item.mem->name + " : ");
+                auto &vec = *static_cast<vector<double>*>(item.mem->mem);
                 for (auto d : vec) output.append(QString::number(d) + ", ");
                 output.truncate(output.size() - 2);
                 output.append("\n");
