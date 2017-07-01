@@ -141,13 +141,25 @@ void parseInput(QString &filename, Data &data) {
     auto output = root.elementsByTagName("Output").at(0).childNodes();
 
     for (int i = 0; i < data.outputNames.size(); i++) {
-        auto inv = data.inputNames[i];
+        auto inv = data.outputNames[i];
         int ind = find(output, inv);
         if (ind == -1) throw QString("No records in ") + filename + " for output " + inv;
         auto el = output.at(ind).toElement();
         data.outputDescriptions.push_back(el.attribute("desc"));
         data.outputUnits.push_back(el.attribute("unit"));
     }
+
+    auto findItem = [&data](QString name, bool isOutput) {
+        int len = data.inputNames.size();
+        if (isOutput) len = data.outputNames.size();
+        for (int i = 0; i < len; i++) {
+            if (isOutput) {
+                if (data.outputNames[i] == name) return i;
+            }
+            else if (data.inputNames[i] == name) return i;
+        }
+        return -1;
+    };
 
     auto soutputs = root.elementsByTagName("ScreenOutput").at(0).childNodes();
     for (int i = 0; i < soutputs.size(); i++) {
@@ -160,15 +172,22 @@ void parseInput(QString &filename, Data &data) {
         else throw QString("Unknown ScreenOutput type ") + sout.nodeName();
 
         auto attrmap = sout.attributes();
-        for (int i = 0; i < attrmap.size(); i++) {
-            wgt.attributes.insert(attrmap.item(i).nodeName(),attrmap.item(i).nodeValue());
+        for (int k = 0; k < attrmap.size(); k++) {
+            wgt.attributes.insert(attrmap.item(k).nodeName(), attrmap.item(k).nodeValue());
         }
 
         auto content = sout.childNodes();
         for (int j = 0; j < content.size(); j++) {
             auto var = content.at(j);
             wgt.items.emplace_back();
-            auto item = wgt.items.back();
+            auto &item = wgt.items.back();
+            item.isOutput = true;
+            if (var.nodeName() == "InputVar") item.isOutput = false;
+            item.index = findItem(var.toElement().attribute("name"), item.isOutput);
+            attrmap = var.attributes();
+            for (int k = 0; k < attrmap.size(); k++) {
+                item.attributes.insert(attrmap.item(k).nodeName(), attrmap.item(k).nodeValue());
+            }
         }
     }
 }

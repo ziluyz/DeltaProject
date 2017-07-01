@@ -4,6 +4,8 @@
 #include <QtWidgets>
 #include "delpro.h"
 
+using namespace std;
+
 struct Data;
 
 class MainWindow : public QWidget
@@ -14,7 +16,7 @@ private:
 public:
     explicit MainWindow(Data *data);
     bool needUpdate;
-    QLabel *label;
+    vector<QWidget*> content;
 protected:
     void timerEvent(QTimerEvent *event) override;
 
