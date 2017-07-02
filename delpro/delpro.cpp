@@ -23,23 +23,23 @@ int execute(int argc, char** argv, int (*f)(), void* data) {
     if (argc > 1) fname = argv[1];
     try {
         parseInput(fname, d);
+
+        QApplication app(argc, argv);
+
+        MainWindow window(&d);
+        d.window = &window;
+        window.showMaximized();
+        window.startTimer(500);
+
+        CalcThread thread(f);
+        thread.start(QThread::HighPriority);
+
+        app.exec();
     }
     catch (QString str) {
         cout << str.toStdString() << endl;
         return 1;
     }
-
-    QApplication app(argc, argv);
-
-    MainWindow window(&d);
-    d.window = &window;
-    window.showMaximized();
-    window.startTimer(500);
-
-    CalcThread thread(f);
-    thread.start(QThread::HighPriority);
-
-    app.exec();
 
     return 0;
 }

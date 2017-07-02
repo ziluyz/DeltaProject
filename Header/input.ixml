@@ -2,13 +2,13 @@
 <Project name="gravity_motion">
     <Input>
         <Var name="h" type="double" desc="Height" unit="m">
-            1
+            10
         </Var>
         <Var name="vx" type="double" desc="Horizontal velocity" unit="m/s">
             1
 		</Var>
         <Var name="vy" type="double" desc="Vertical velocity" unit="m/s">
-            0
+            5
 		</Var>
     </Input>
     <Output>
@@ -18,17 +18,18 @@
         <Var name="traj_y" type="double_vector" desc="y-coordinate" unit="m"/>
     </Output>
     <ScreenOutput>
-        <TextField title="Input parameters" position="2,2:1,1:1,1">
+        <TextField title="Input parameters" position="1,1:1,1">
             <InputVar name="h"/>
             <InputVar name="vx"/>
             <InputVar name="vy"/>
         </TextField>
-        <TextField title="Results" position="2,2:2,1:1,1">
+        <TextField title="Results" position="2,1:1,1">
             <OutputVar name="speed" />
             <OutputVar name="time" />
         </TextField>
-        <Plot title="Undulator" position="1,2:1,2:1,1">
-            <OutputVar name="traj_y" xname="traj_x"/>
+        <Plot title="Undulator" position="1,2:2,4">
+            <OutputVar name="traj_x" xtag="x"/>
+            <OutputVar name="traj_y" xref="x"/>
         </Plot>
     </ScreenOutput>
 </Project>

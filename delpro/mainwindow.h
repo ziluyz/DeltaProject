@@ -2,13 +2,15 @@
 #define MAINWINDOW_H
 
 #include <QtWidgets>
+#include "qcustomplot.h"
 #include "delpro.h"
 #include <memory>
 
 using namespace std;
 
 struct Data;
-class ScreenOutput;
+struct ScreenOutput;
+struct OutputItem;
 class Wgt;
 
 class MainWindow : public QWidget
@@ -30,7 +32,6 @@ public slots:
 
 class Wgt {
 protected:
-    QLayout *base;
     ScreenOutput *source;
 public:
     Wgt(ScreenOutput *sout) : source(sout) {}
@@ -43,6 +44,27 @@ private:
     QLabel *label;
 public:
     TextField(ScreenOutput *sout);
+    void attach(QGridLayout& c, int row, int col, int rowspan, int colspan) override;
+    void draw() override;
+};
+
+struct Graph {
+    struct gpair {
+        OutputItem *y;
+        QCPGraph *graph;
+    };
+
+    QString xtag;
+    OutputItem *x;
+    vector<gpair> ys;
+};
+
+class Plot : public Wgt {
+private:
+    QCustomPlot *plot;
+    vector<Graph> graphs;
+public:
+    Plot(ScreenOutput *sout);
     void attach(QGridLayout& c, int row, int col, int rowspan, int colspan) override;
     void draw() override;
 };
