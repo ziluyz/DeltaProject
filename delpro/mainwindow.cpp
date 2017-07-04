@@ -48,27 +48,27 @@ void TextField::attach(QGridLayout& c, int row, int col, int rowspan, int colspa
 void TextField::draw() {
     QString output = source->attributes.contains("title") ? source->attributes["title"] + "\n" : "";
     for (OutputItem& item : source->items) {
-        if (!item.mem->isValid) continue;
-        output.append(item.mem->desc + ": ");
-        switch(item.mem->type) {
+        if (!item.var->isValid) continue;
+        output.append(item.var->desc + ": ");
+        switch(item.var->type) {
         case Types::INT:
-            output.append(QString::number(*static_cast<int*>(item.mem->mem)));
+            output.append(QString::number(*static_cast<int*>(item.var->mem)));
             break;
         case Types::DOUBLE:
-            output.append(QString::number(*static_cast<double*>(item.mem->mem)));
+            output.append(QString::number(*static_cast<double*>(item.var->mem)));
             break;
         case Types::INTVECTOR: {
-            auto &vec = *static_cast<vector<int>*>(item.mem->mem);
+            auto &vec = *static_cast<vector<int>*>(item.var->mem);
             for (auto d : vec) output.append(QString::number(d) + ", ");
             output.truncate(output.size() - 2);
             break;}
         case Types::DOUBLEVECTOR: {
-            auto &vec = *static_cast<vector<double>*>(item.mem->mem);
+            auto &vec = *static_cast<vector<double>*>(item.var->mem);
             for (auto d : vec) output.append(QString::number(d) + ", ");
             output.truncate(output.size() - 2);
             break;}
         }
-        output.append(" " + item.mem->unit + "\n");
+        output.append(" " + item.var->unit + "\n");
     }
     label->setText(output);
     label->adjustSize();
@@ -130,11 +130,11 @@ void Plot::attach(QGridLayout &c, int row, int col, int rowspan, int colspan) {
 
 void Plot::draw() {
     for (Graph &g : graphs) {
-        if (!g.x->mem->isValid) continue;
-        QVector<double> vx = QVector<double>::fromStdVector(*static_cast<vector<double>*>(g.x->mem->mem));
+        if (!g.x->var->isValid) continue;
+        QVector<double> vx = QVector<double>::fromStdVector(*static_cast<vector<double>*>(g.x->var->mem));
         for (Graph::gpair &y : g.ys) {
-            if (!y.y->mem->isValid) continue;
-            QVector<double> vy = QVector<double>::fromStdVector(*static_cast<vector<double>*>(y.y->mem->mem));
+            if (!y.y->var->isValid) continue;
+            QVector<double> vy = QVector<double>::fromStdVector(*static_cast<vector<double>*>(y.y->var->mem));
             y.graph->setData(vx, vy);
             y.graph->rescaleAxes();
         }

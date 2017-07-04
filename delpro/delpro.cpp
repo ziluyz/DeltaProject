@@ -170,8 +170,8 @@ void parseInput(QString &filename, Data &data) {
             OutputItem &item = wgt.items.back();
             bool isOutput = true;
             if (rec.nodeName() == "InputVar") isOutput = false;
-            item.mem = findItem(rec.toElement().attribute("name"), isOutput);
-            if (item.mem == nullptr) throw QString("Cannot find variable '") +
+            item.var = findItem(rec.toElement().attribute("name"), isOutput);
+            if (item.var == nullptr) throw QString("Cannot find variable '") +
                     rec.toElement().attribute("name") + "' for ScreenOutput '" + name + "'";
             attrmap = rec.attributes();
             for (int k = 0; k < attrmap.size(); k++) {

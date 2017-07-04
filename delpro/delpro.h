@@ -28,7 +28,7 @@ struct Variable {
 };
 
 struct OutputItem {
-    Variable *mem;
+    Variable *var;
     QHash<QString,QString> attributes;
 };
 

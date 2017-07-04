@@ -48,19 +48,18 @@ public:
     void draw() override;
 };
 
-struct Graph {
-    struct gpair {
-        OutputItem *y;
-        QCPGraph *graph;
-    };
-
-    QString xtag;
-    OutputItem *x;
-    vector<gpair> ys;
-};
-
 class Plot : public Wgt {
 private:
+    struct Graph {
+        struct gpair {
+            OutputItem *y;
+            QCPGraph *graph;
+        };
+
+        QString xtag;
+        OutputItem *x;
+        vector<gpair> ys;
+    };
     QCustomPlot *plot;
     vector<Graph> graphs;
 public:

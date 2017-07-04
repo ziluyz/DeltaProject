@@ -6,7 +6,7 @@
 
 QT       += widgets \
             core \
-            xml
+            xml printsupport
 
 QT       -= gui
 
