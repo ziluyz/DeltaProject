@@ -52,7 +52,7 @@ void updateOutput(int index, void *data) {
 void validateOutput(int index, bool isValid, void *data) {
     auto &d = *static_cast<Data*>(data);
     d.outputVars[index].isValid = isValid;
-    if (d.window!=nullptr) d.window->needUpdate = d.window->needUpdate || isValid;
+    d.window->needUpdate = d.window->needUpdate || isValid;
 }
 
 int registerVar(QString name, QString type, void *mem, vector<Variable> &container) {

@@ -5,6 +5,7 @@
 #include "qcustomplot.h"
 #include "delpro.h"
 #include <memory>
+#include <set>
 
 using namespace std;
 
@@ -18,6 +19,7 @@ class MainWindow : public QWidget
     Q_OBJECT
 private:
     Data *data;
+    set<shared_ptr<Wgt>> toDraw;
 public:
     explicit MainWindow(Data *data);
     bool needUpdate;

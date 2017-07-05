@@ -26,12 +26,30 @@ MainWindow::MainWindow(Data *data) : QWidget(), needUpdate(false)
         QStringList spans = sp.at(1).split(',');
         if (spans.size() != 2) throw QString("Invalid position ") + pos + " of ScreenOutput";
         content.back()->attach(*lay, coords.at(1).toInt() - 1, coords.at(0).toInt() - 1, spans.at(1).toInt(), spans.at(0).toInt());
+        for (OutputItem &item : sout.items) item.var->wgts.push_back(content.back());
     }
 }
 
 void MainWindow::timerEvent(QTimerEvent *event) {
     if (!needUpdate) return;
-    for (shared_ptr<Wgt> wgt : content) {
+    toDraw.clear();
+    for (Variable& var : data->inputVars) {
+        if (var.isNew) {
+            var.isNew = false;
+            var.needUpdate = true;
+            for (shared_ptr<Wgt> wgt : var.wgts) toDraw.insert(wgt);
+        }
+        else var.needUpdate = false;
+    }
+    for (Variable& var : data->outputVars) {
+        if (var.isNew && var.isValid) {
+            var.isNew = false;
+            var.needUpdate = true;
+            for (shared_ptr<Wgt> wgt : var.wgts) toDraw.insert(wgt);
+        }
+        else var.needUpdate = false;
+    }
+    for (shared_ptr<Wgt> wgt : toDraw) {
         wgt->draw();
     }
     needUpdate = false;
@@ -131,12 +149,14 @@ void Plot::attach(QGridLayout &c, int row, int col, int rowspan, int colspan) {
 void Plot::draw() {
     for (Graph &g : graphs) {
         if (!g.x->var->isValid) continue;
-        QVector<double> vx = QVector<double>::fromStdVector(*static_cast<vector<double>*>(g.x->var->mem));
+        auto vx = QVector<double>::fromStdVector(*static_cast<vector<double>*>(g.x->var->mem));
         for (Graph::gpair &y : g.ys) {
             if (!y.y->var->isValid) continue;
-            QVector<double> vy = QVector<double>::fromStdVector(*static_cast<vector<double>*>(y.y->var->mem));
-            y.graph->setData(vx, vy);
-            y.graph->rescaleAxes();
+            if (y.y->var->needUpdate || g.x->var->needUpdate) {
+                QVector<double> vy = QVector<double>::fromStdVector(*static_cast<vector<double>*>(y.y->var->mem));
+                y.graph->setData(vx, vy);
+                y.graph->rescaleAxes();
+            }
         }
     }
     plot->replot();

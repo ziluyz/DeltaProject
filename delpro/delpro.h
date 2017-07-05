@@ -4,6 +4,7 @@
 #include "delpro_global.h"
 #include <QThread>
 #include <QtWidgets>
+#include <memory>
 #include "mainwindow.h"
 
 int registerInput(const char* name, const char* type, void *var, void *pdata);
@@ -17,6 +18,8 @@ enum class ScreenTypes {TEXTFIELD, PLOT};
 
 using namespace std;
 
+class Wgt;
+
 struct Variable {
     QString name;
     void *mem;
@@ -25,6 +28,8 @@ struct Variable {
     QString unit;
     bool isNew;
     bool isValid;
+    bool needUpdate;
+    vector<shared_ptr<Wgt>> wgts;
 };
 
 struct OutputItem {
