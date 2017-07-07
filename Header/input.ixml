@@ -27,15 +27,15 @@
             <OutputVar name="speed" />
             <OutputVar name="time" />
         </TextField>
-        <Plot title="Undulator" position="1,2:2,1">
+        <Plot title="Траектория" position="1,2:2,1">
             <OutputVar name="traj_x" xtag="x"/>
-            <OutputVar name="traj_y" xref="x"/>
-            <OutputVar name="traj_x" xref="x2"/>
+            <OutputVar name="traj_y" xref="x" color="red"/>
+            <OutputVar name="traj_x" xref="x2" color="#ffd000" width="2"/>
             <OutputVar name="traj_y" xtag="x2"/>
         </Plot>
         <Plot title="Undulator_x" position="1,3:1,1">
             <OutputVar name="traj_x" xtag="x"/>
-            <OutputVar name="traj_y" xref="x"/>
+            <OutputVar name="traj_y" xref="x" style="dash" width="2" color="forestgreen"/>
         </Plot>
         <Plot title="Undulator_y" position="2,3:1,1">
             <OutputVar name="traj_x" xref="x2"/>

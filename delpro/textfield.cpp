@@ -5,7 +5,12 @@ TextField::TextField(ScreenOutput *sout) : Wgt(sout) {
 }
 
 void TextField::attach(QGridLayout& c, int row, int col, int rowspan, int colspan) {
-    c.addWidget(label, row, col, rowspan, colspan);
+    QVBoxLayout *holder = new QVBoxLayout();
+    QLabel *title = new QLabel(source->attributes["title"]);
+    title->setFont(QFont("Helvetica",11,QFont::Bold));
+    holder->addWidget(title, 0, Qt::AlignHCenter);
+    holder->addWidget(label, 0, Qt::AlignHCenter);
+    c.addLayout(holder, row, col, rowspan, colspan);
 }
 
 void TextField::draw() {
