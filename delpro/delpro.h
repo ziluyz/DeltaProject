@@ -6,6 +6,7 @@
 #include <QtWidgets>
 #include <memory>
 #include "mainwindow.h"
+#include "wgt.h"
 
 int registerInput(const char* name, const char* type, void *var, void *pdata);
 int registerOutput(const char* name, const char* type, void *var, void *pdata);
@@ -19,6 +20,7 @@ enum class ScreenTypes {TEXTFIELD, PLOT};
 using namespace std;
 
 class Wgt;
+class MainWindow;
 
 struct Variable {
     QString name;

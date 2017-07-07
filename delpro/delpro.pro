@@ -29,13 +29,18 @@ DEFINES += QT_DEPRECATED_WARNINGS
 SOURCES += \
         delpro.cpp \
     mainwindow.cpp \
-    qcustomplot.cpp
+    qcustomplot.cpp \
+    textfield.cpp \
+    plot.cpp
 
 HEADERS += \
         delpro.h \
         delpro_global.h \ 
     mainwindow.h \
-    qcustomplot.h
+    qcustomplot.h \
+    wgt.h \
+    textfield.h \
+    plot.h
 
 unix {
     target.path = /usr/lib
