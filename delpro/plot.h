@@ -8,7 +8,8 @@ using namespace std;
 
 struct OutputItem;
 
-class Plot : public Wgt {
+class Plot : public QObject, public Wgt {
+    Q_OBJECT
 private:
     struct Graph {
         struct gpair {
@@ -26,6 +27,8 @@ public:
     Plot(ScreenOutput *sout);
     void attach(QGridLayout& c, int row, int col, int rowspan, int colspan) override;
     void draw() override;
+public slots:
+    void showContextMenu(const QPoint &point);
 };
 
 #endif // PLOT_H

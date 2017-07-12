@@ -1,8 +1,8 @@
 #include "plot.h"
 
-Plot::Plot(ScreenOutput *sout) : Wgt(sout) {
+Plot::Plot(ScreenOutput *sout) : QObject(), Wgt(sout) {
     plot = new QCustomPlot();
-    plot->setInteractions(QCP::iRangeDrag | QCP::iRangeZoom | QCP::iSelectPlottables | QCP::iSelectLegend);
+    plot->setInteractions(QCP::iRangeDrag | QCP::iRangeZoom | QCP::iSelectPlottables | QCP::iSelectLegend | QCP::iMultiSelect);
     plot->legend->setVisible(true);
 
     auto find = [](QString xtag, vector<Graph> &gs) {
@@ -72,6 +72,8 @@ void Plot::attach(QGridLayout &c, int row, int col, int rowspan, int colspan) {
         y.graph->setPen(QPen(QBrush(QColor(y.y->attributes["color"])), width, style));
         y.graph->setName(y.y->var->desc + " (" + y.y->var->unit + ")");
     }
+    plot->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(plot, SIGNAL(customContextMenuRequested(const QPoint&)), SLOT(showContextMenu(const QPoint&)));
 }
 
 void Plot::draw() {
@@ -88,4 +90,22 @@ void Plot::draw() {
         }
     }
     plot->replot();
+}
+
+void Plot::showContextMenu(const QPoint &point) {
+    QMenu *menu = new QMenu(plot);
+    menu->move(plot->pos() + point);
+    QList<QCPGraph*> list = plot->selectedGraphs();
+    for (QCPGraph *g : list) {
+        for (Graph &gr : graphs) {
+            for (Graph::gpair &gp : gr.ys) {
+                if (gp.graph == g) menu->addAction(QString("Save ") + gp.y->var->desc);
+            }
+        }
+    }
+    menu->addSeparator();
+    menu->addAction("Save all as data");
+    menu->addAction("Save all as png");
+    menu->addAction("Save all as svg");
+    menu->exec();
 }
