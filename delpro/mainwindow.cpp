@@ -54,3 +54,17 @@ void MainWindow::timerEvent(QTimerEvent *event) {
     }
     needUpdate = false;
 }
+
+unique_ptr<QDir> MainWindow::outputFolder() {
+    unique_ptr<QDir> dir(new QDir());
+    if (!dir->exists("Output")) dir->mkdir("Output");
+    dir->cd("Output");
+    QString folder = data->startTime.toString("yyMMdd_hhmmss_zzz");
+    if (!dir->exists(folder)) {
+        dir->mkdir(folder);
+        dir->cd(folder);
+        QFile::copy(QDir().absoluteFilePath(data->inputFile), dir->absoluteFilePath(data->inputFile));
+    }
+    else dir->cd(folder);
+    return dir;
+}

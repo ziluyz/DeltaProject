@@ -22,6 +22,7 @@ public:
     explicit MainWindow(Data *data);
     bool needUpdate;
     vector<shared_ptr<Wgt>> content;
+    unique_ptr<QDir> outputFolder();
 protected:
     void timerEvent(QTimerEvent *event) override;
 

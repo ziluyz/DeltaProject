@@ -49,6 +49,8 @@ class MainWindow;
 
 struct Data {
     MainWindow *window;
+    QDateTime startTime;
+    QString inputFile;
     vector<Variable> inputVars;
     vector<Variable> outputVars;
     vector<ScreenOutput> screenOutputs;
@@ -64,6 +66,6 @@ public:
 };
 
 int registerVar(QString name, QString type, void *mem, vector<Variable> &container);
-void parseInput(QString &filename, Data &data);
+void parseInput(Data &data);
 
 #endif // DELPRO_H

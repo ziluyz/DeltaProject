@@ -1,4 +1,5 @@
 #include "plot.h"
+#include "mainwindow.h"
 
 Plot::Plot(ScreenOutput *sout) : QObject(), Wgt(sout) {
     plot = new QCustomPlot();
@@ -93,6 +94,17 @@ void Plot::draw() {
 }
 
 void Plot::showContextMenu(const QPoint &point) {
+    auto savePng = [this]() {
+        auto dir = static_cast<MainWindow*>(plot->parent())->outputFolder();
+        plot->savePng(dir->absoluteFilePath(QDateTime::currentDateTime().toString("yyMMdd_hhmmss_zzz_") +
+                                            source->attributes["title"] + ".png"));
+    };
+    auto savePdf = [this]() {
+        auto dir = static_cast<MainWindow*>(plot->parent())->outputFolder();
+        plot->savePdf(dir->absoluteFilePath(QDateTime::currentDateTime().toString("yyMMdd_hhmmss_zzz_") +
+                                            source->attributes["title"] + ".pdf"));
+    };
+
     QMenu *menu = new QMenu(plot);
     menu->move(plot->pos() + point);
     QList<QCPGraph*> list = plot->selectedGraphs();
@@ -105,7 +117,8 @@ void Plot::showContextMenu(const QPoint &point) {
     }
     menu->addSeparator();
     menu->addAction("Save all as data");
-    menu->addAction("Save all as png");
-    menu->addAction("Save all as svg");
+    menu->addAction("Save all as png", savePng);
+    menu->addAction("Save all as pdf", savePdf);
     menu->exec();
+    delete menu;
 }

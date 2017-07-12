@@ -19,10 +19,11 @@ int registerOutput(const char* name, const char* type, void *var, void *pdata) {
 
 int execute(int argc, char** argv, int (*f)(), void* data) {
     auto &d = *static_cast<Data*>(data);
-    QString fname("input.ixml");
-    if (argc > 1) fname = argv[1];
+    d.startTime = QDateTime::currentDateTime();
+    d.inputFile = "input.ixml";
+    if (argc > 1) d.inputFile = argv[1];
     try {
-        parseInput(fname, d);
+        parseInput(d);
 
         QApplication app(argc, argv);
 
@@ -69,8 +70,8 @@ int registerVar(QString name, QString type, void *mem, vector<Variable> &contain
     return container.size() - 1;
 }
 
-void parseInput(QString &filename, Data &data) {
-    QFile file(filename);
+void parseInput(Data &data) {
+    QFile file(data.inputFile);
     if (!file.open(QIODevice::ReadOnly)) throw QString("Error opening input file");
     QDomDocument doc("input_file");
     QString parsError;
@@ -132,7 +133,7 @@ void parseInput(QString &filename, Data &data) {
     auto output = root.elementsByTagName("Output").at(0).childNodes();
     for (auto &var : data.outputVars) {
         int ind = find(output, var.name);
-        if (ind == -1) throw QString("No records in ") + filename + " for output " + var.name;
+        if (ind == -1) throw QString("No records in ") + data.inputFile + " for output " + var.name;
         auto el = output.at(ind).toElement();
         var.desc = el.attribute("desc");
         var.unit = el.attribute("unit");
