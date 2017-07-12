@@ -3,40 +3,54 @@
 MainWindow::MainWindow(Data *data) : QWidget(), needUpdate(false)
 {
     this->data = data;
-    label = new QLabel(this);
+    Data &d = *data;
+    QGridLayout *lay = new QGridLayout();
+    setLayout(lay);
+    for (ScreenOutput &sout : d.screenOutputs) {
+        switch (sout.type) {
+        case ScreenTypes::TEXTFIELD:
+            content.emplace_back(new TextField(&sout));
+            break;
+        case ScreenTypes::PLOT:
+            content.emplace_back(new Plot(&sout));
+            break;
+        default:
+            throw QString("Error initializing ScreenOutput");
+            break;
+        }
+        QString pos = sout.attributes["position"];
+        QStringList sp = pos.split(':');
+        if (sp.size() != 2) throw QString("Invalid position ") + pos + " of ScreenOutput";
+        QStringList coords = sp.at(0).split(',');
+        if (coords.size() != 2) throw QString("Invalid position ") + pos + " of ScreenOutput";
+        QStringList spans = sp.at(1).split(',');
+        if (spans.size() != 2) throw QString("Invalid position ") + pos + " of ScreenOutput";
+        content.back()->attach(*lay, coords.at(1).toInt() - 1, coords.at(0).toInt() - 1, spans.at(1).toInt(), spans.at(0).toInt());
+        for (OutputItem &item : sout.items) item.var->wgts.push_back(content.back());
+    }
 }
 
 void MainWindow::timerEvent(QTimerEvent *event) {
     if (!needUpdate) return;
-    QString output("");
-    for (int i = 0; i < data->outputNames.size(); i++) {
-        if (!data->outputIsValid[i]) continue;
-        switch(data->outputTypes[i]) {
-        case Types::INT:
-            output.append(data->outputNames[i] + " = " + QString::number(*static_cast<int*>(data->outputVars[i])) + "\n");
-            break;
-        case Types::DOUBLE:
-            output.append(data->outputNames[i] + " = " + QString::number(*static_cast<double*>(data->outputVars[i])) + "\n");
-            break;
-        case Types::INTVECTOR: {
-            output.append("Vector " + data->outputNames[i] + " : ");
-            auto &vec = *static_cast<vector<int>*>(data->outputVars[i]);
-            for (auto d : vec) output.append(QString::number(d) + ", ");
-            output.truncate(output.size() - 2);
-            output.append("\n");
-            break;
+    toDraw.clear();
+    for (Variable& var : data->inputVars) {
+        if (var.isNew) {
+            var.isNew = false;
+            var.needUpdate = true;
+            for (shared_ptr<Wgt> wgt : var.wgts) toDraw.insert(wgt);
         }
-        case Types::DOUBLEVECTOR: {
-            output.append("Vector " + data->outputNames[i] + " : ");
-            auto &vec = *static_cast<vector<double>*>(data->outputVars[i]);
-            for (auto d : vec) output.append(QString::number(d) + ", ");
-            output.truncate(output.size() - 2);
-            output.append("\n");
-            break;
-        }
-        }
+        else var.needUpdate = false;
     }
-    label->setText(output);
-    label->adjustSize();
+    for (Variable& var : data->outputVars) {
+        if (var.isNew && var.isValid) {
+            var.isNew = false;
+            var.needUpdate = true;
+            for (shared_ptr<Wgt> wgt : var.wgts) toDraw.insert(wgt);
+        }
+        else var.needUpdate = false;
+    }
+    for (shared_ptr<Wgt> wgt : toDraw) {
+        wgt->draw();
+    }
     needUpdate = false;
 }

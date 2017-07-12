@@ -2,19 +2,26 @@
 #define MAINWINDOW_H
 
 #include <QtWidgets>
+#include <memory>
+#include <set>
 #include "delpro.h"
+#include "wgt.h"
+
+using namespace std;
 
 struct Data;
+class Wgt;
 
 class MainWindow : public QWidget
 {
     Q_OBJECT
 private:
     Data *data;
+    set<shared_ptr<Wgt>> toDraw;
 public:
     explicit MainWindow(Data *data);
     bool needUpdate;
-    QLabel *label;
+    vector<shared_ptr<Wgt>> content;
 protected:
     void timerEvent(QTimerEvent *event) override;
 
