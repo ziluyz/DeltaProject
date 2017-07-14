@@ -1,5 +1,6 @@
 #include "plot.h"
 #include "mainwindow.h"
+#include <algorithm>
 
 Plot::Plot(ScreenOutput *sout) : QObject(), Wgt(sout) {
     plot = new QCustomPlot();
@@ -80,12 +81,16 @@ void Plot::attach(QGridLayout &c, int row, int col, int rowspan, int colspan) {
 void Plot::draw() {
     for (Graph &g : graphs) {
         if (!g.x->var->isValid) continue;
-        auto vx = QVector<double>::fromStdVector(*static_cast<vector<double>*>(g.x->var->mem));
+        if (g.x->var->needUpdate) {
+            g.xdata = QVector<double>::fromStdVector(*static_cast<vector<double>*>(g.x->var->mem));
+        }
         for (Graph::gpair &y : g.ys) {
             if (!y.y->var->isValid) continue;
+            if (y.y->var->needUpdate) {
+                y.ydata = QVector<double>::fromStdVector(*static_cast<vector<double>*>(y.y->var->mem));
+            }
             if (y.y->var->needUpdate || g.x->var->needUpdate) {
-                QVector<double> vy = QVector<double>::fromStdVector(*static_cast<vector<double>*>(y.y->var->mem));
-                y.graph->setData(vx, vy);
+                y.graph->setData(g.xdata, y.ydata);
                 y.graph->rescaleAxes(true);
             }
         }
@@ -104,19 +109,72 @@ void Plot::showContextMenu(const QPoint &point) {
         plot->savePdf(dir->absoluteFilePath(QDateTime::currentDateTime().toString("yyMMdd_hhmmss_zzz_") +
                                             source->attributes["title"] + ".pdf"));
     };
+    auto saveData = [this](QSet<QCPGraph*> &selectedLines) {
+        vector<Graph*> selectedGraphs;
+        for (Graph &g : graphs) {
+            for (Graph::gpair &gp : g.ys) {
+                if (selectedLines.contains(gp.graph)) {
+                    selectedGraphs.push_back(&g);
+                    break;
+                }
+            }
+        }
+        auto dir = static_cast<MainWindow*>(plot->parent())->outputFolder();
+        QFile file(dir->absoluteFilePath(QDateTime::currentDateTime().toString("yyMMdd_hhmmss_zzz_") +
+                                            source->attributes["title"] + ".dat"));
+        file.open(QIODevice::WriteOnly | QIODevice::Text);
+        QTextStream out(&file);
+        QString str;
+        for (Graph *g : selectedGraphs) {
+            str = str + g->x->var->desc + " (" + g->x->var->unit + "), ";
+            for (Graph::gpair &gp : g->ys) {
+                if (selectedLines.contains(gp.graph)) str = str + gp.y->var->desc + " (" + gp.y->var->unit + "), ";
+            }
+        }
+        str.truncate(str.size() - 2);
+        out << str << endl;
+        int ind = 0;
+        bool endOfData = false;
+        while (!endOfData) {
+            str.clear();
+            endOfData = true;
+            for (Graph *g : selectedGraphs) {
+                if (g->xdata.size() > ind) {
+                    str = str + QString::number(g->xdata.at(ind)) + ", ";
+                    endOfData = false;
+                }
+                else str = str + ",";
+                for (Graph::gpair &gp : g->ys) {
+                    if (gp.ydata.size() > ind) {
+                        if (selectedLines.contains(gp.graph)) str = str + QString::number(gp.ydata.at(ind)) + ", ";
+                        endOfData = false;
+                    }
+                    else str = str + ",";
+                }
+            }
+            if (!endOfData) {
+                str.truncate(str.size() - 2);
+                out << str << endl;
+            }
+            ind++;
+        }
+        file.close();
+    };
+    auto saveSelected = [this, saveData]() {
+        QSet<QCPGraph*> lines = QSet<QCPGraph*>::fromList(plot->selectedGraphs());
+        saveData(lines);
+    };
+    auto saveAll = [this, saveData]() {
+        QSet<QCPGraph*> lines;
+        for (int i = 0, len = plot->graphCount(); i < len; i++) lines.insert(plot->graph(i));
+        saveData(lines);
+    };
 
     QMenu *menu = new QMenu(plot);
     menu->move(plot->pos() + point);
-    QList<QCPGraph*> list = plot->selectedGraphs();
-    for (QCPGraph *g : list) {
-        for (Graph &gr : graphs) {
-            for (Graph::gpair &gp : gr.ys) {
-                if (gp.graph == g) menu->addAction(QString("Save ") + gp.y->var->desc);
-            }
-        }
-    }
+    if (plot->selectedGraphs().size() > 0) menu->addAction("Save selected as data", saveSelected);
     menu->addSeparator();
-    menu->addAction("Save all as data");
+    menu->addAction("Save all as data", saveAll);
     menu->addAction("Save all as png", savePng);
     menu->addAction("Save all as pdf", savePdf);
     menu->exec();

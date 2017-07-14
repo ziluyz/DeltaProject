@@ -14,11 +14,13 @@ private:
     struct Graph {
         struct gpair {
             OutputItem *y;
+            QVector<double> ydata;
             QCPGraph *graph;
         };
 
         QString xtag;
         OutputItem *x;
+        QVector<double> xdata;
         vector<gpair> ys;
     };
     QCustomPlot *plot;
