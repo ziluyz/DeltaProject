@@ -6,6 +6,7 @@ Plot::Plot(ScreenOutput *sout) : QObject(), Wgt(sout) {
     plot = new QCustomPlot();
     plot->setInteractions(QCP::iRangeDrag | QCP::iRangeZoom | QCP::iSelectPlottables | QCP::iSelectLegend | QCP::iMultiSelect);
     plot->legend->setVisible(true);
+    plot->legend->setSelectableParts(QCPLegend::spItems);
 
     auto find = [](QString xtag, vector<Graph> &gs) {
         for (Graph &g : gs) {
@@ -73,6 +74,8 @@ void Plot::attach(QGridLayout &c, int row, int col, int rowspan, int colspan) {
         else if (ss == "dashdotdot") style = Qt::DashDotDotLine;
         y.graph->setPen(QPen(QBrush(QColor(y.y->attributes["color"])), width, style));
         y.graph->setName(y.y->var->desc + " (" + y.y->var->unit + ")");
+        connect(plot->legend->itemWithPlottable(y.graph), SIGNAL(selectionChanged(bool)), SLOT(syncGraphsWithLegend(bool)));
+        connect(y.graph, SIGNAL(selectionChanged(bool)), SLOT(syncLegendWithGraphs(bool)));
     }
     plot->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(plot, SIGNAL(customContextMenuRequested(const QPoint&)), SLOT(showContextMenu(const QPoint&)));
@@ -179,4 +182,23 @@ void Plot::showContextMenu(const QPoint &point) {
     menu->addAction("Save all as pdf", savePdf);
     menu->exec();
     delete menu;
+}
+
+#include <iostream>
+
+void Plot::syncGraphsWithLegend(bool hz) {
+    cout << "Legend " << hz << endl;
+    for (int i = 0, len = plot->legend->itemCount(); i < len; i++) {
+        static_cast<QCPPlottableLegendItem*>(plot->legend->item(i))->plottable()->
+                setSelection(QCPDataSelection(QCPDataRange(0,
+                                                           plot->legend->item(i)->selected())));
+    }
+}
+
+void Plot::syncLegendWithGraphs(bool hz) {
+    cout << "Graph " << hz << endl;
+    QSet<QCPGraph*> set = QSet<QCPGraph*>::fromList(plot->selectedGraphs());
+    for (int i = 0, len = plot->graphCount(); i < len; i++) {
+        plot->legend->itemWithPlottable(plot->graph(i))->setSelected(set.contains(plot->graph(i)));
+    }
 }

@@ -31,6 +31,8 @@ public:
     void draw() override;
 public slots:
     void showContextMenu(const QPoint &point);
+    void syncGraphsWithLegend(bool hz);
+    void syncLegendWithGraphs(bool hz);
 };
 
 #endif // PLOT_H
