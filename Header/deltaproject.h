@@ -11,6 +11,19 @@ extern void validateOutput(int, bool, void*);
 
 void *data = nullptr;
 
+class InputInt {
+    private:
+        double val;
+        int index;
+    public:
+        InputInt(const char *name) {
+            index = registerInput(name, "int", &val, &data);
+        }
+        operator double() {
+            return val;
+        }
+};
+
 class InputDouble {
     private:
         double val;
@@ -22,6 +35,30 @@ class InputDouble {
         operator double() {
             return val;
         }
+};
+
+class InputIntVector {
+    private:
+        std::vector<int> vec;
+        int index;
+    public:
+        InputIntVector(const char* name) {
+            index = registerInput(name, "intvector", &vec, &data);
+        }
+        int operator[](int i) {return vec[i];}
+        int size() {return vec.size();}
+};
+
+class InputDoubleVector {
+    private:
+        std::vector<double> vec;
+        int index;
+    public:
+        InputDoubleVector(const char* name) {
+            index = registerInput(name, "doublevector", &vec, &data);
+        }
+        int operator[](int i) {return vec[i];}
+        int size() {return vec.size();}
 };
 
 class OutputDouble {
@@ -65,6 +102,22 @@ class OutputDoubleVector {
         void clear() {vec.clear();}
         int size() {return vec.size();}
         void setValid(bool val = true) {validateOutput(index, val, data);}
+};
+
+class OutputVectorCollection {
+    private:
+        std::vector<OutputDoubleVector*> vecs;
+        void addVector() {}
+        template<class... T>
+        void addVector(OutputDoubleVector &fv, T&... vectors) {
+            vecs.push_back(&fv);
+            addVector(vectors...);
+        }
+    public:
+        template<class... T>
+        OutputVectorCollection(OutputDoubleVector &fv, T&... vectors) {addVector(fv, vectors...);}
+        void clear() {for (auto v : vecs) v->clear();}
+        void setValid(bool val = true) {for (auto v : vecs) v->setValid(val);}
 };
 
 #endif

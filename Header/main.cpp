@@ -3,8 +3,8 @@
 
 int maincalc() {
     using namespace output;
-    traj_x.clear();
-    traj_y.clear();
+    auto arrs = OutputVectorCollection(traj_x, traj_y);
+    arrs.clear();
     double x = 0;
     double y = input::h;
     double t = 0;
@@ -17,8 +17,7 @@ int maincalc() {
         traj_x.push_back(x);
         traj_y.push_back(y);
     }
-    traj_x.setValid();
-    traj_y.setValid();
+    arrs.setValid();
     time = t;
     double vfy = input::vy - 9.8*t;
     speed = std::sqrt(input::vx*input::vx + vfy*vfy);
