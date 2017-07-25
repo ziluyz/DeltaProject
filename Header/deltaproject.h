@@ -11,55 +11,54 @@ extern void validateOutput(int, bool, void*);
 
 void *data = nullptr;
 
-class InputInt {
+template<class T>
+class InputNumber {
     private:
-        double val;
+        T val;
         int index;
     public:
-        InputInt(const char *name) {
-            index = registerInput(name, "int", &val, &data);
-        }
-        operator double() {
+        InputNumber(const char *name) {throw 1;}
+        operator T() {
             return val;
         }
 };
 
-class InputDouble {
-    private:
-        double val;
-        int index;
-    public:
-        InputDouble(const char *name) {
-            index = registerInput(name, "double", &val, &data);
-        }
-        operator double() {
-            return val;
-        }
-};
+template<>
+InputNumber<int>::InputNumber(const char *name) {
+    index = registerInput(name, "int", &val, &data);
+}
 
-class InputIntVector {
+template<>
+InputNumber<double>::InputNumber(const char *name) {
+    index = registerInput(name, "double", &val, &data);
+}
+
+typedef InputNumber<int> InputInt;
+typedef InputNumber<double> InputDouble;
+
+template<class T>
+class InputNumberVector {
     private:
-        std::vector<int> vec;
+        std::vector<T> vec;
         int index;
     public:
-        InputIntVector(const char* name) {
-            index = registerInput(name, "intvector", &vec, &data);
-        }
-        int operator[](int i) {return vec[i];}
+        InputNumberVector(const char* name) {throw 1;}
+        T operator[](int i) {return vec[i];}
         int size() {return vec.size();}
 };
 
-class InputDoubleVector {
-    private:
-        std::vector<double> vec;
-        int index;
-    public:
-        InputDoubleVector(const char* name) {
-            index = registerInput(name, "doublevector", &vec, &data);
-        }
-        int operator[](int i) {return vec[i];}
-        int size() {return vec.size();}
-};
+template<>
+InputNumberVector<int>::InputNumberVector(const char *name) {
+    index = registerInput(name, "intvector", &vec, &data);
+}
+
+template<>
+InputNumberVector<double>::InputNumberVector(const char *name) {
+    index = registerInput(name, "doublevector", &vec, &data);
+}
+
+typedef InputNumberVector<int> InputIntVector;
+typedef InputNumberVector<double> InputDoubleVector;
 
 class OutputDouble {
     private:
@@ -82,6 +81,7 @@ class OutputDouble {
             validateOutput(index, true, data);
             return *this;
         }
+        operator double() {return val;}
 };
 
 class OutputDoubleVector {
