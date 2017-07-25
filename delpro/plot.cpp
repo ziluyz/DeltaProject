@@ -83,17 +83,10 @@ void Plot::attach(QGridLayout &c, int row, int col, int rowspan, int colspan) {
 
 void Plot::draw() {
     for (Graph &g : graphs) {
-        if (!g.x->var->isValid) continue;
-        if (g.x->var->needUpdate) {
-            g.xdata = QVector<double>::fromStdVector(*static_cast<vector<double>*>(g.x->var->mem));
-        }
         for (Graph::gpair &y : g.ys) {
-            if (!y.y->var->isValid) continue;
-            if (y.y->var->needUpdate) {
-                y.ydata = QVector<double>::fromStdVector(*static_cast<vector<double>*>(y.y->var->mem));
-            }
             if (y.y->var->needUpdate || g.x->var->needUpdate) {
-                y.graph->setData(g.xdata, y.ydata);
+                y.graph->setData(*static_cast<QVector<double>*>(g.x->var->supply),
+                                 *static_cast<QVector<double>*>(y.y->var->supply));
                 y.graph->rescaleAxes(true);
             }
         }
@@ -142,14 +135,16 @@ void Plot::showContextMenu(const QPoint &point) {
             str.clear();
             endOfData = true;
             for (Graph *g : selectedGraphs) {
-                if (g->xdata.size() > ind) {
-                    str = str + QString::number(g->xdata.at(ind)) + ", ";
+                auto &xvec = *static_cast<QVector<double>*>(g->x->var->supply);
+                if (xvec.size() > ind) {
+                    str = str + QString::number(xvec.at(ind)) + ", ";
                     endOfData = false;
                 }
                 else str = str + ",";
                 for (Graph::gpair &gp : g->ys) {
-                    if (gp.ydata.size() > ind) {
-                        if (selectedLines.contains(gp.graph)) str = str + QString::number(gp.ydata.at(ind)) + ", ";
+                    auto &yvec = *static_cast<QVector<double>*>(gp.y->var->supply);
+                    if (yvec.size() > ind) {
+                        if (selectedLines.contains(gp.graph)) str = str + QString::number(yvec.at(ind)) + ", ";
                         endOfData = false;
                     }
                     else str = str + ",";
@@ -184,10 +179,7 @@ void Plot::showContextMenu(const QPoint &point) {
     delete menu;
 }
 
-#include <iostream>
-
 void Plot::syncGraphsWithLegend(bool hz) {
-    cout << "Legend " << hz << endl;
     for (int i = 0, len = plot->legend->itemCount(); i < len; i++) {
         static_cast<QCPPlottableLegendItem*>(plot->legend->item(i))->plottable()->
                 setSelection(QCPDataSelection(QCPDataRange(0,
@@ -196,7 +188,6 @@ void Plot::syncGraphsWithLegend(bool hz) {
 }
 
 void Plot::syncLegendWithGraphs(bool hz) {
-    cout << "Graph " << hz << endl;
     QSet<QCPGraph*> set = QSet<QCPGraph*>::fromList(plot->selectedGraphs());
     for (int i = 0, len = plot->graphCount(); i < len; i++) {
         plot->legend->itemWithPlottable(plot->graph(i))->setSelected(set.contains(plot->graph(i)));

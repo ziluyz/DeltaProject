@@ -42,6 +42,14 @@ int execute(int argc, char** argv, int (*f)(), void* data) {
         return 1;
     }
 
+    for (auto &var : d.inputVars) {
+        if (var.type == Types::INTVECTOR) delete static_cast<QVector<int>*>(var.supply);
+        else if (var.type == Types::DOUBLEVECTOR) delete static_cast<QVector<double>*>(var.supply);
+    }
+    for (auto &var : d.outputVars) {
+        if (var.type == Types::INTVECTOR) delete static_cast<QVector<int>*>(var.supply);
+        else if (var.type == Types::DOUBLEVECTOR) delete static_cast<QVector<double>*>(var.supply);
+    }
     return 0;
 }
 
@@ -52,6 +60,13 @@ void updateOutput(int index, void *data) {
 
 void validateOutput(int index, bool isValid, void *data) {
     auto &d = *static_cast<Data*>(data);
+    if (isValid) {
+        auto var = d.outputVars[index];
+        if (var.type == Types::INTVECTOR) *static_cast<QVector<int>*>(var.supply) =
+                QVector<int>::fromStdVector(*static_cast<vector<int>*>(var.mem));
+        else if (var.type == Types::DOUBLEVECTOR) *static_cast<QVector<double>*>(var.supply) =
+                QVector<double>::fromStdVector(*static_cast<vector<double>*>(var.mem));
+    }
     d.outputVars[index].isValid = isValid;
     d.window->needUpdate = d.window->needUpdate || isValid;
 }
@@ -62,8 +77,14 @@ int registerVar(QString name, QString type, void *mem, vector<Variable> &contain
     item.name = name;
     if (type == "int") item.type = Types::INT;
     else if (type == "double") item.type = Types::DOUBLE;
-    else if (type == "intvector") item.type = Types::INTVECTOR;
-    else if (type == "doublevector") item.type = Types::DOUBLEVECTOR;
+    else if (type == "intvector") {
+        item.type = Types::INTVECTOR;
+        item.supply = new QVector<int>;
+    }
+    else if (type == "doublevector") {
+        item.type = Types::DOUBLEVECTOR;
+        item.supply = new QVector<double>;
+    }
     else throw QString("Unknown input type");
     item.mem = mem;
 
@@ -117,6 +138,7 @@ void parseInput(Data &data) {
                 vec.push_back(v.toInt(&ok));
                 if (!ok) break;
             }
+            *static_cast<QVector<int>*>(var.supply) = QVector<int>::fromStdVector(vec);
             break;}
         case Types::DOUBLEVECTOR: {
             auto list = value.split(QRegExp("\\s+"));
@@ -125,6 +147,7 @@ void parseInput(Data &data) {
                 vec.push_back(v.toDouble(&ok));
                 if (!ok) break;
             }
+            *static_cast<QVector<double>*>(var.supply) = QVector<double>::fromStdVector(vec);
             break;}
         }
         if (!ok) throw QString("Error parsing value of ") + var.name + " from " + value;

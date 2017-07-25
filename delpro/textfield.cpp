@@ -26,12 +26,12 @@ void TextField::draw() {
             output.append(QString::number(*static_cast<double*>(item.var->mem)));
             break;
         case Types::INTVECTOR: {
-            auto &vec = *static_cast<vector<int>*>(item.var->mem);
+            auto &vec = *static_cast<QVector<int>*>(item.var->supply);
             for (auto d : vec) output.append(QString::number(d) + ", ");
             output.truncate(output.size() - 2);
             break;}
         case Types::DOUBLEVECTOR: {
-            auto &vec = *static_cast<vector<double>*>(item.var->mem);
+            auto &vec = *static_cast<QVector<double>*>(item.var->supply);
             for (auto d : vec) output.append(QString::number(d) + ", ");
             output.truncate(output.size() - 2);
             break;}

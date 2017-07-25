@@ -32,6 +32,7 @@ struct Variable {
     bool isValid;
     bool needUpdate;
     vector<shared_ptr<Wgt>> wgts;
+    void *supply;
 };
 
 struct OutputItem {

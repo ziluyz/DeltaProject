@@ -42,7 +42,7 @@ void MainWindow::timerEvent(QTimerEvent *event) {
         else var.needUpdate = false;
     }
     for (Variable& var : data->outputVars) {
-        if (var.isNew && var.isValid) {
+        if (var.isNew) {
             var.isNew = false;
             var.needUpdate = true;
             for (shared_ptr<Wgt> wgt : var.wgts) toDraw.insert(wgt);
