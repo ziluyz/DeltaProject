@@ -103,6 +103,13 @@ void parseInput(Data &data) {
         var.isNew = var.isValid = true;
         bool ok;
         auto value = el.firstChild().nodeValue();
+        auto comlist = value.split("%");
+        value.clear();
+        bool incl = true;
+        for (auto el : comlist) {
+            if (incl) value = value + el;
+            incl = !incl;
+        }
         switch (var.type) {
         case Types::INT:
             *static_cast<int*>(var.mem)=value.toInt(&ok);
@@ -111,7 +118,7 @@ void parseInput(Data &data) {
             *static_cast<double*>(var.mem)=value.toDouble(&ok);
             break;
         case Types::INTVECTOR: {
-            auto list = value.split(QRegExp("\\s+"));
+            auto list = value.split(QRegExp("\\s+"), QString::SkipEmptyParts);
             auto &vec = *static_cast<vector<int>*>(var.mem);
             for (auto v : list) {
                 vec.push_back(v.toInt(&ok));
@@ -119,7 +126,7 @@ void parseInput(Data &data) {
             }
             break;}
         case Types::DOUBLEVECTOR: {
-            auto list = value.split(QRegExp("\\s+"));
+            auto list = value.split(QRegExp("\\s+"), QString::SkipEmptyParts);
             auto &vec = *static_cast<vector<double>*>(var.mem);
             for (auto v : list) {
                 vec.push_back(v.toDouble(&ok));
