@@ -10,6 +10,7 @@ void TextField::attach(QGridLayout& c, int row, int col, int rowspan, int colspa
     title->setFont(QFont("Helvetica",11,QFont::Bold));
     holder->addWidget(title, 0, Qt::AlignHCenter);
     holder->addWidget(label, 0, Qt::AlignHCenter);
+    holder->addStretch(100);
     c.addLayout(holder, row, col, rowspan, colspan);
 }
 
@@ -40,5 +41,4 @@ void TextField::draw() {
     }
     label->setText(output);
     label->adjustSize();
-    //label->setStyleSheet("QLabel { background-color : red; color : blue; }");
 }

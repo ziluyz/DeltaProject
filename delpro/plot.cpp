@@ -5,8 +5,35 @@
 Plot::Plot(ScreenOutput *sout) : QObject(), Wgt(sout) {
     plot = new QCustomPlot();
     plot->setInteractions(QCP::iRangeDrag | QCP::iRangeZoom | QCP::iSelectPlottables | QCP::iSelectLegend | QCP::iMultiSelect);
-    plot->legend->setVisible(true);
-    plot->legend->setSelectableParts(QCPLegend::spItems);
+    QString legend = source->attributes["legend"];
+    QString lwrap = source->attributes["legend_wrap"];
+    int lw;
+    bool ok;
+    lw = lwrap.toInt(&ok);
+    if (!ok) lw = 2;
+    if (legend == "off");
+    else {
+        plot->legend->setVisible(true);
+        plot->legend->setSelectableParts(QCPLegend::spItems);
+        if (legend == "out" || legend == "right") {
+            QCPLayoutGrid *subLayout = new QCPLayoutGrid();
+            plot->plotLayout()->addElement(0, 1, subLayout);
+            subLayout->setMargins(QMargins(0,5,5,5));
+            subLayout->addElement(0, 0, plot->legend);
+            subLayout->insertRow(1);
+            subLayout->setRowStretchFactor(1,100);
+            plot->plotLayout()->setColumnStretchFactor(1,0.001);
+        }
+        else if (legend == "bottom") {
+            QCPLayoutGrid *subLayout = new QCPLayoutGrid();
+            plot->plotLayout()->addElement(1, 0, subLayout);
+            subLayout->setMargins(QMargins(5,0,5,5));
+            subLayout->addElement(0, 0, plot->legend);
+            plot->legend->setFillOrder(QCPLegend::foColumnsFirst);
+            plot->legend->setWrap(lw);
+            plot->plotLayout()->setRowStretchFactor(1,0.001);
+        }
+    }
 
     auto find = [](QString xtag, vector<Graph> &gs) {
         for (Graph &g : gs) {
@@ -57,13 +84,23 @@ Plot::Plot(ScreenOutput *sout) : QObject(), Wgt(sout) {
 
 void Plot::attach(QGridLayout &c, int row, int col, int rowspan, int colspan) {
     QVBoxLayout *holder = new QVBoxLayout();
+    holder->setContentsMargins(0,15,0,0);
     QLabel *title = new QLabel(source->attributes["title"]);
     title->setFont(QFont("Helvetica",11,QFont::Bold));
     holder->addWidget(title, 0, Qt::AlignHCenter);
     holder->addWidget(plot, 1);
     c.addLayout(holder, row, col, rowspan, colspan);
     for (Graph &g : graphs) for (Graph::gpair &y : g.ys) {
-        y.graph = plot->addGraph();
+        QString yaxis = y.y->attributes["yaxis"];
+        if (yaxis == "right") {
+            yaxis = "[R] ";
+            y.graph = plot->addGraph(plot->xAxis, plot->yAxis2);
+            plot->yAxis2->setVisible(true);
+        }
+        else {
+            yaxis = "[L] ";
+            y.graph = plot->addGraph();
+        }
         double width = 1;
         if (!y.y->attributes["width"].isNull()) width = y.y->attributes["width"].toDouble();
         Qt::PenStyle style = Qt::SolidLine;
@@ -73,7 +110,7 @@ void Plot::attach(QGridLayout &c, int row, int col, int rowspan, int colspan) {
         else if (ss == "dashdot") style = Qt::DashDotLine;
         else if (ss == "dashdotdot") style = Qt::DashDotDotLine;
         y.graph->setPen(QPen(QBrush(QColor(y.y->attributes["color"])), width, style));
-        y.graph->setName(y.y->var->desc + " (" + y.y->var->unit + ")");
+        y.graph->setName(yaxis + y.y->var->desc + " (" + y.y->var->unit + ")");
         connect(plot->legend->itemWithPlottable(y.graph), SIGNAL(selectionChanged(bool)), SLOT(syncGraphsWithLegend(bool)));
         connect(y.graph, SIGNAL(selectionChanged(bool)), SLOT(syncLegendWithGraphs(bool)));
     }
@@ -82,6 +119,7 @@ void Plot::attach(QGridLayout &c, int row, int col, int rowspan, int colspan) {
 }
 
 void Plot::draw() {
+    set<QCPAxis*> usedAxes;
     for (Graph &g : graphs) {
         if (!g.x->var->isValid) continue;
         if (g.x->var->needUpdate) {
@@ -94,7 +132,11 @@ void Plot::draw() {
             }
             if (y.y->var->needUpdate || g.x->var->needUpdate) {
                 y.graph->setData(g.xdata, y.ydata);
-                y.graph->rescaleAxes(true);
+                if (usedAxes.count(y.graph->valueAxis())) y.graph->rescaleAxes(true);
+                else {
+                    usedAxes.insert(y.graph->valueAxis());
+                    y.graph->rescaleAxes();
+                }
             }
         }
     }
@@ -184,10 +226,7 @@ void Plot::showContextMenu(const QPoint &point) {
     delete menu;
 }
 
-#include <iostream>
-
 void Plot::syncGraphsWithLegend(bool hz) {
-    cout << "Legend " << hz << endl;
     for (int i = 0, len = plot->legend->itemCount(); i < len; i++) {
         static_cast<QCPPlottableLegendItem*>(plot->legend->item(i))->plottable()->
                 setSelection(QCPDataSelection(QCPDataRange(0,
@@ -196,7 +235,6 @@ void Plot::syncGraphsWithLegend(bool hz) {
 }
 
 void Plot::syncLegendWithGraphs(bool hz) {
-    cout << "Graph " << hz << endl;
     QSet<QCPGraph*> set = QSet<QCPGraph*>::fromList(plot->selectedGraphs());
     for (int i = 0, len = plot->graphCount(); i < len; i++) {
         plot->legend->itemWithPlottable(plot->graph(i))->setSelected(set.contains(plot->graph(i)));

@@ -45,16 +45,17 @@ class InputNumberVector {
         InputNumberVector(const char* name) {throw 1;}
         T operator[](int i) {return vec[i];}
         int size() {return vec.size();}
+        std::vector<T>& data() {return vec;}
 };
 
 template<>
 InputNumberVector<int>::InputNumberVector(const char *name) {
-    index = registerInput(name, "intvector", &vec, &data);
+    index = registerInput(name, "intvector", &vec, &::data);
 }
 
 template<>
 InputNumberVector<double>::InputNumberVector(const char *name) {
-    index = registerInput(name, "doublevector", &vec, &data);
+    index = registerInput(name, "doublevector", &vec, &::data);
 }
 
 typedef InputNumberVector<int> InputIntVector;
@@ -90,18 +91,23 @@ class OutputDoubleVector {
         int index;
     public:
         OutputDoubleVector(const char* name) {
-            index = registerOutput(name, "doublevector", &vec, &data);
+            index = registerOutput(name, "doublevector", &vec, &::data);
         }
         OutputDoubleVector(const OutputDoubleVector&) = delete;
         OutputDoubleVector& operator=(const OutputDoubleVector&) = delete;
-        double& operator[](int i) {return vec[i];}
+        double& operator[](int i) {
+            updateOutput(index, ::data);
+            return vec[i];
+        }
         void push_back(double x) {
             vec.push_back(x);
-            updateOutput(index, data);
+            updateOutput(index, ::data);
         }
         void clear() {vec.clear();}
         int size() {return vec.size();}
-        void setValid(bool val = true) {validateOutput(index, val, data);}
+        void resize(int n) {vec.resize(n);}
+        void setValid(bool val = true) {validateOutput(index, val, ::data);}
+        std::vector<double>& data() {return vec;}
 };
 
 class OutputVectorCollection {
@@ -118,6 +124,7 @@ class OutputVectorCollection {
         OutputVectorCollection(OutputDoubleVector &fv, T&... vectors) {addVector(fv, vectors...);}
         void clear() {for (auto v : vecs) v->clear();}
         void setValid(bool val = true) {for (auto v : vecs) v->setValid(val);}
+        void resize(int n) {for (auto v : vecs) v->resize(n);}
 };
 
 #endif
