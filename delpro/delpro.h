@@ -8,64 +8,90 @@
 #include "mainwindow.h"
 #include "wgt.h"
 
+//interface to libdelpro.so
+//-------------------------
+//Register input variable
+//var is a pointer to variable data
+//pdata is pointer to pointer to Data communication block (inner .so structure, see below)
+//returns the index of registered variable in the inner .so structure
 int registerInput(const char* name, const char* type, void *var, void *pdata);
+//Register output variable
 int registerOutput(const char* name, const char* type, void *var, void *pdata);
+//Begin execution cycle
+//f is pointer to maincalc
+//data is pointer to Data block
 int execute(int argc, char** argv, int (*f)(), void* data);
+//Register changes in output variables
+//index is the one provided during registration
 void updateOutput(int index, void *data);
+//Report wether an output variable is valid
 void validateOutput(int index, bool isValid, void *data);
 
+//Available types
+//-----------------
+//Types of variables
 enum class Types {INT, DOUBLE, INTVECTOR, DOUBLEVECTOR};
+//Types of screen output widgets
 enum class ScreenTypes {TEXTFIELD, PLOT};
 
 using namespace std;
 
-class Wgt;
-class MainWindow;
+class Wgt; // Abstract class of output widget
+class MainWindow; // Main window class
 
+//Inner structure of input and output variables
 struct Variable {
-    QString name;
-    void *mem;
-    Types type;
-    QString desc;
-    QString unit;
-    bool isNew;
-    bool isValid;
-    bool needUpdate;
-    vector<shared_ptr<Wgt>> wgts;
+    QString name; // provided by calling program via register(In)(Out)put
+    void *mem; // pointer to real variable data, provided by calling program
+    Types type; // one of available
+    QString desc; // verbal description, provided by input ixml
+    QString unit; // variable physical units, provided by input ixml
+    bool isNew; // shows if data were recently changed, controlled by updateOutput
+    bool isValid; // shows if data are valid, controlled by validateOutput
+    bool needUpdate; // shows if data is waiting for screen update, controlled by MainWindow timer event
+    vector<shared_ptr<Wgt>> wgts; // all widgets showing this variable
 };
 
+//Item of the output widget along with its attributes as is got from input ixml
 struct OutputItem {
     Variable *var;
     QHash<QString,QString> attributes;
 };
 
+//Record for output widget as is got from input ixml
 struct ScreenOutput {
     ScreenTypes type;
     QHash<QString,QString> attributes;
     vector<OutputItem> items;
 };
 
-class MainWindow;
-
+//Main data block
+//used to communicate between libdelpro.so and calling program when registering and updating variables
+//initialized by the first variable registering
 struct Data {
     MainWindow *window;
-    QDateTime startTime;
-    QString inputFile;
+    QDateTime startTime; // used to name folder when saving data
+    QString inputFile; // name of input ixml
     vector<Variable> inputVars;
     vector<Variable> outputVars;
     vector<ScreenOutput> screenOutputs;
 };
 
+//Thread for maincalc
 class CalcThread : public QThread
 {
 private:
     int (*fun)();
 public:
-    CalcThread(int (*f)()) : QThread() {fun = f;}
+    CalcThread(int (*f)()) : QThread() {fun = f;} // f should point to maincalc
     void run() override {fun();}
 };
 
+//Inner functions
+//---------------
+//Common variable registrator
 int registerVar(QString name, QString type, void *mem, vector<Variable> &container);
+//ixml parser
 void parseInput(Data &data);
 
 #endif // DELPRO_H

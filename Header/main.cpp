@@ -6,7 +6,7 @@ int maincalc() {
     auto arrs = OutputVectorCollection(traj_x, traj_y);
     time = 0;
     double scale = 1;
-    while (time < 10000) {
+    while (time < 100) {
         double vy = input::vy * scale;
         arrs.setValid(false);
         arrs.clear();
