@@ -3,9 +3,10 @@
 
 #include "wgt.h"
 
+//Capable of printing variables as text
 class TextField : public Wgt {
 private:
-    QLabel *label;
+    QLabel *label; // All data are printed through this label
 public:
     TextField(ScreenOutput *sout);
     void attach(QGridLayout& c, int row, int col, int rowspan, int colspan) override;
