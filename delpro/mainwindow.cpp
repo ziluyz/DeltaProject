@@ -74,7 +74,11 @@ unique_ptr<QDir> MainWindow::outputFolder() {
         dir->mkdir(folder);
         dir->cd(folder);
         // ...and copy input ixml there
-        QFile::copy(QDir().absoluteFilePath(data->inputFile), dir->absoluteFilePath(data->inputFile));
+        //QFile::copy(QDir().absoluteFilePath(data->inputFile), dir->absoluteFilePath(data->inputFile));
+        QFile file(dir->absoluteFilePath(data->inputFile));
+        file.open(QFile::WriteOnly | QFile::Truncate);
+        QTextStream tstr(&file);
+        data->inputIXML.save(tstr, 4);
     }
     else dir->cd(folder);
     // return pointer to output path

@@ -1,7 +1,6 @@
 #include "delpro.h"
 #include <iostream>
 #include <QApplication>
-#include <QDomDocument>
 
 using namespace std;
 
@@ -75,8 +74,8 @@ int registerVar(QString name, QString type, void *mem, vector<Variable> &contain
 //ixml parser
 void parseInput(Data &data) {
     QFile file(data.inputFile);
-    if (!file.open(QIODevice::ReadOnly)) throw QString("Error opening input file");
-    QDomDocument doc("input_file");
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) throw QString("Error opening input file");
+    QDomDocument &doc = data.inputIXML;
     QString parsError;
     int errorLine;
     if (!doc.setContent(&file, false, &parsError, &errorLine)) {
@@ -84,6 +83,40 @@ void parseInput(Data &data) {
         throw QString("Error parsing input file\n") + parsError + "\nLine: " + QString::number(errorLine);
     }
     file.close();
+
+    //Processing all imports
+    bool imported;
+    do {
+        auto list = doc.elementsByTagName("import");
+        int len = list.size();
+        imported = false;
+        for (int i = 0; i < len; i++) {
+            imported = true;
+            auto el = list.at(i).toElement();
+            auto par = el.parentNode();
+
+            QString filename = el.attribute("filename","");
+            file.setFileName(filename);
+            if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) throw QString("Error opening import file " + filename);
+
+            QDomDocument idoc("to_import");
+            if (!idoc.setContent(&file, false, &parsError, &errorLine)) {
+                file.close();
+                throw QString("Error parsing import file\n") + parsError + "\nLine: " + QString::number(errorLine);
+            }
+            file.close();
+            auto iroot = idoc.documentElement();
+            auto iel = iroot.firstChild();
+            while (!iel.isNull()) {
+                auto nel = iel.nextSibling();
+                par.insertBefore(iel, el);
+                iel = nel;
+            }
+            par.removeChild(el);
+        }
+    }
+    while (imported);
+
     auto root = doc.documentElement();
 
     auto find = [](QDomNodeList &list, QString &name) { // find "Var" node wih name in list
@@ -155,6 +188,7 @@ void parseInput(Data &data) {
         var.isNew = var.isValid = false;
     }
 
+    //------------------ScreenOutput Section-------------------------------------------------------
     auto findItem = [&data](QString name, bool isOutput) { // find variable in Data by name
         auto vars = &data.inputVars;
         if (isOutput) vars = &data.outputVars;
@@ -164,7 +198,6 @@ void parseInput(Data &data) {
         return static_cast<Variable*>(nullptr); // return nullptr if not found
     };
 
-    //------------------ScreenOutput Section-------------------------------------------------------
     auto soutputs = root.elementsByTagName("ScreenOutput").at(0).childNodes();
     for (int i = 0; i < soutputs.size(); i++) {
         auto sout = soutputs.at(i);
@@ -175,6 +208,7 @@ void parseInput(Data &data) {
         else if (name == "Plot") wgt.type = ScreenTypes::PLOT;
         else throw QString("Unknown ScreenOutput type ") + sout.nodeName();
 
+        //Reading attributes of ScreenOutput
         auto attrmap = sout.attributes();
         for (int k = 0; k < attrmap.size(); k++) {
             wgt.attributes.insert(attrmap.item(k).nodeName(), attrmap.item(k).nodeValue());
@@ -190,6 +224,7 @@ void parseInput(Data &data) {
             item.var = findItem(rec.toElement().attribute("name"), isOutput);
             if (item.var == nullptr) throw QString("Cannot find variable '") +
                     rec.toElement().attribute("name") + "' for ScreenOutput '" + name + "'";
+            //Reading attributes of OutputItem
             attrmap = rec.attributes();
             for (int k = 0; k < attrmap.size(); k++) {
                 item.attributes.insert(attrmap.item(k).nodeName(), attrmap.item(k).nodeValue());

@@ -4,7 +4,10 @@
 
 Plot::Plot(ScreenOutput *sout) : QObject(), Wgt(sout) {
     plot = new QCustomPlot();
+    //Setting automatically processed mouse events
     plot->setInteractions(QCP::iRangeDrag | QCP::iRangeZoom | QCP::iSelectPlottables | QCP::iSelectLegend | QCP::iMultiSelect);
+
+    //Positioning of the legend
     QString legend = source->attributes["legend"];
     QString lwrap = source->attributes["legend_wrap"];
     int lw;
@@ -35,13 +38,15 @@ Plot::Plot(ScreenOutput *sout) : QObject(), Wgt(sout) {
         }
     }
 
+    //Find Graph with given xtag
     auto find = [](QString xtag, vector<Graph> &gs) {
         for (Graph &g : gs) {
-            if (g.xtag == xtag) return &g;
+            if (g.xtag == xtag) return &g; // and return pointer to it
         }
-        return static_cast<Graph*>(nullptr);
+        return static_cast<Graph*>(nullptr); // or nullptr
     };
 
+    //Populate graphs depending on xtag and xref attributes
     for (OutputItem &item : source->items) {
         if (item.attributes.contains("xtag")) {
             QString xtag = item.attributes["xtag"];
@@ -85,22 +90,25 @@ Plot::Plot(ScreenOutput *sout) : QObject(), Wgt(sout) {
 void Plot::attach(QGridLayout &c, int row, int col, int rowspan, int colspan) {
     QVBoxLayout *holder = new QVBoxLayout();
     holder->setContentsMargins(0,15,0,0);
+    //Setting Title
     QLabel *title = new QLabel(source->attributes["title"]);
     title->setFont(QFont("Helvetica",11,QFont::Bold));
     holder->addWidget(title, 0, Qt::AlignHCenter);
     holder->addWidget(plot, 1);
     c.addLayout(holder, row, col, rowspan, colspan);
     for (Graph &g : graphs) for (Graph::gpair &y : g.ys) {
+        //Choosing y-axis position
         QString yaxis = y.y->attributes["yaxis"];
         if (yaxis == "right") {
-            yaxis = "[R] ";
+            yaxis = "[R] "; // Hint to the legend
             y.graph = plot->addGraph(plot->xAxis, plot->yAxis2);
             plot->yAxis2->setVisible(true);
         }
         else {
-            yaxis = "[L] ";
+            yaxis = "[L] "; // Hint to the legend
             y.graph = plot->addGraph();
         }
+        //Processing attributes
         double width = 1;
         if (!y.y->attributes["width"].isNull()) width = y.y->attributes["width"].toDouble();
         Qt::PenStyle style = Qt::SolidLine;
@@ -111,24 +119,25 @@ void Plot::attach(QGridLayout &c, int row, int col, int rowspan, int colspan) {
         else if (ss == "dashdotdot") style = Qt::DashDotDotLine;
         y.graph->setPen(QPen(QBrush(QColor(y.y->attributes["color"])), width, style));
         y.graph->setName(yaxis + y.y->var->desc + " (" + y.y->var->unit + ")");
+        //Synchronize curves and legends selection
         connect(plot->legend->itemWithPlottable(y.graph), SIGNAL(selectionChanged(bool)), SLOT(syncGraphsWithLegend(bool)));
         connect(y.graph, SIGNAL(selectionChanged(bool)), SLOT(syncLegendWithGraphs(bool)));
     }
-    plot->setContextMenuPolicy(Qt::CustomContextMenu);
+    plot->setContextMenuPolicy(Qt::CustomContextMenu);// show context menu on rbuttonclick
     connect(plot, SIGNAL(customContextMenuRequested(const QPoint&)), SLOT(showContextMenu(const QPoint&)));
 }
 
 void Plot::draw() {
-    set<QCPAxis*> usedAxes;
+    set<QCPAxis*> usedAxes; // to enlarge axis range for second and further curves
     for (Graph &g : graphs) {
         if (!g.x->var->isValid) continue;
         if (g.x->var->needUpdate) {
-            g.xdata = QVector<double>::fromStdVector(*static_cast<vector<double>*>(g.x->var->mem));
+            g.xdata = QVector<double>::fromStdVector(*static_cast<vector<double>*>(g.x->var->mem)); // xdata to buffer
         }
         for (Graph::gpair &y : g.ys) {
             if (!y.y->var->isValid) continue;
             if (y.y->var->needUpdate) {
-                y.ydata = QVector<double>::fromStdVector(*static_cast<vector<double>*>(y.y->var->mem));
+                y.ydata = QVector<double>::fromStdVector(*static_cast<vector<double>*>(y.y->var->mem)); // ydata to buffer
             }
             if (y.y->var->needUpdate || g.x->var->needUpdate) {
                 y.graph->setData(g.xdata, y.ydata);

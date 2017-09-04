@@ -4,6 +4,7 @@
 #include "delpro_global.h"
 #include <QThread>
 #include <QtWidgets>
+#include <QDomDocument>
 #include <memory>
 #include "mainwindow.h"
 #include "wgt.h"
@@ -72,6 +73,7 @@ struct Data {
     MainWindow *window;
     QDateTime startTime; // used to name folder when saving data
     QString inputFile; // name of input ixml
+    QDomDocument inputIXML; // processed input ixml
     vector<Variable> inputVars;
     vector<Variable> outputVars;
     vector<ScreenOutput> screenOutputs;
