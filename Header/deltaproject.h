@@ -9,7 +9,13 @@ extern int execute(int, char**, int (*)(), void*);
 extern void updateOutput(int, void*);
 extern void validateOutput(int, bool, void*);
 
+int maincalc();
+
 void *data = nullptr;
+
+int main(int argc, char** argv) {
+    return execute(argc, argv, maincalc, data);
+}
 
 template<class T>
 class InputNumber {
@@ -43,19 +49,19 @@ class InputNumberVector {
         int index;
     public:
         InputNumberVector(const char* name) {throw 1;}
-        T operator[](int i) {return vec[i];}
-        int size() {return vec.size();}
-        std::vector<T>& data() {return vec;}
+        T operator[](unsigned long i) {return vec[i];}
+        unsigned long size() {return vec.size();}
+        T back() {return vec.back();}
 };
 
 template<>
 InputNumberVector<int>::InputNumberVector(const char *name) {
-    index = registerInput(name, "intvector", &vec, &::data);
+    index = registerInput(name, "intvector", &vec, &data);
 }
 
 template<>
 InputNumberVector<double>::InputNumberVector(const char *name) {
-    index = registerInput(name, "doublevector", &vec, &::data);
+    index = registerInput(name, "doublevector", &vec, &data);
 }
 
 typedef InputNumberVector<int> InputIntVector;
@@ -91,11 +97,11 @@ class OutputDoubleVector {
         int index;
     public:
         OutputDoubleVector(const char* name) {
-            index = registerOutput(name, "doublevector", &vec, &::data);
+            index = registerOutput(name, "doublevector", &vec, &data);
         }
         OutputDoubleVector(const OutputDoubleVector&) = delete;
         OutputDoubleVector& operator=(const OutputDoubleVector&) = delete;
-        double& operator[](int i) {
+        double& operator[](unsigned long i) {
             updateOutput(index, ::data);
             return vec[i];
         }
@@ -103,11 +109,11 @@ class OutputDoubleVector {
             vec.push_back(x);
             updateOutput(index, ::data);
         }
+        double& back() {return vec.back();}
         void clear() {vec.clear();}
-        int size() {return vec.size();}
+        unsigned long size() {return vec.size();}
         void resize(int n) {vec.resize(n);}
         void setValid(bool val = true) {validateOutput(index, val, ::data);}
-        std::vector<double>& data() {return vec;}
 };
 
 class OutputVectorCollection {
@@ -126,5 +132,50 @@ class OutputVectorCollection {
         void setValid(bool val = true) {for (auto v : vecs) v->setValid(val);}
         void resize(int n) {for (auto v : vecs) v->resize(n);}
 };
+
+void submeshInputVectors(std::vector<InputDoubleVector*> x0s, std::vector<InputDoubleVector*> y0s,
+        double dx, std::vector<double> &x, std::vector<std::vector<double>*> ys,
+        std::vector<std::vector<double>*> vys) {
+    using namespace std;
+    struct Channel {
+        InputDoubleVector *x0;
+        InputDoubleVector *y0;
+        unsigned long index;
+        vector<double> *y;
+        vector<double> *vy;
+        double tx, ty, tvy;
+    };
+    vector<Channel> chs;
+    double tx = (*x0s[0])[0];
+    x.clear();
+
+	for (unsigned long i = 0; i < x0s.size(); i++) chs.push_back(Channel{x0s[i], y0s[i],
+            0, ys[i], vys[i]});
+
+    do {
+        double nx = (*chs[0].x0)[chs[0].index + 1];
+        for (auto &ch : chs) {
+            while ((*ch.x0)[ch.index] <= tx) ch.index++;
+            double ny = (*ch.y0)[ch.index--];
+            ch.ty = (*ch.y0)[ch.index];
+            ch.tx = (*ch.x0)[ch.index];
+            ch.tvy = (ny - ch.ty) / ((*ch.x0)[ch.index + 1] - ch.tx);
+            if ((*ch.x0)[ch.index + 1] < nx) nx = (*ch.x0)[ch.index + 1];
+        }
+        int np = (nx - tx) / dx + 1;
+        double rdx = (nx - tx) / np;
+        for (int i = 0; i < np; i++) {
+            x.push_back(tx + rdx * i);
+            for (auto &ch : chs) {
+                (*ch.y).push_back(ch.ty + ch.tvy * (x.back() - ch.tx));
+                if (ch.vy != nullptr) (*ch.vy).push_back(ch.tvy);
+            }
+        }
+        x.push_back(nx);
+        for (auto &ch : chs) (*ch.y).push_back(ch.ty + ch.tvy * (x.back() - ch.tx));
+        tx = nx;
+    }
+    while (tx < (*chs[0].x0).back());
+}
 
 #endif
