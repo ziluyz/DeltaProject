@@ -12,9 +12,3 @@ namespace output {
     OutputDoubleVector traj_x("traj_x");
     OutputDoubleVector traj_y("traj_y");
 }
-
-int maincalc();
-
-int main(int argc, char** argv) {
-    return execute(argc, argv, maincalc, data);
-}
