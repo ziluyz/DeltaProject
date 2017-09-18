@@ -2,6 +2,8 @@
 #define _DELTA_P
 
 #include <vector>
+#include <string>
+#include <iostream>
 
 extern int registerInput(const char*, const char*, void* , void*);
 extern int registerOutput(const char*, const char*, void* , void*);
@@ -12,6 +14,12 @@ extern void validateOutput(int, bool, void*);
 int maincalc();
 
 void *data = nullptr;
+
+class RuntimeException : public std::string {
+    public:
+        RuntimeException(const char* str) : std::string(str) {};
+};
+
 
 int main(int argc, char** argv) {
     return execute(argc, argv, maincalc, data);
