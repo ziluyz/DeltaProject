@@ -161,7 +161,7 @@ void submeshInputVectors(std::vector<InputDoubleVector*> x0s, std::vector<InputD
             0, ys[i], vys[i]});
 
     do {
-        double nx = (*chs[0].x0)[chs[0].index + 1];
+        double nx = (*chs[0].x0).back();
         for (auto &ch : chs) {
             while ((*ch.x0)[ch.index] <= tx) ch.index++;
             double ny = (*ch.y0)[ch.index--];
@@ -179,11 +179,11 @@ void submeshInputVectors(std::vector<InputDoubleVector*> x0s, std::vector<InputD
                 if (ch.vy != nullptr) (*ch.vy).push_back(ch.tvy);
             }
         }
-        x.push_back(nx);
-        for (auto &ch : chs) (*ch.y).push_back(ch.ty + ch.tvy * (x.back() - ch.tx));
         tx = nx;
     }
     while (tx < (*chs[0].x0).back());
+    x.push_back(tx);
+    for (auto &ch : chs) (*ch.y).push_back(ch.ty + ch.tvy * (x.back() - ch.tx));
 }
 
 #endif
