@@ -10,5 +10,5 @@ namespace output {
     OutputDouble speed("speed");
     OutputDouble time("time");
     OutputDoubleVector traj_x("traj_x");
-    OutputDoubleVector traj_y("traj_y");
+    OutputDoubleVectorSet traj_y("traj_y");
 }

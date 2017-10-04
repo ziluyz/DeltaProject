@@ -4,9 +4,10 @@
 int maincalc() {
     using namespace output;
     auto arrs = OutputVectorCollection(traj_x, traj_y);
-    time = 0;
+    traj_y.setNumberOfVectors(2);
+    output::time = 0;
     double scale = 1;
-    while (time < 100) {
+    while (output::time < 100) {
         double vy = input::vy * scale;
         arrs.setValid(false);
         arrs.clear();
@@ -14,16 +15,19 @@ int maincalc() {
         double y = input::h;
         double t = 0;
         traj_x.push_back(x);
-        traj_y.push_back(y);
+        traj_y.pushZero();
+        traj_y.set_back(0, y);
         while (y > 0) {
             t += 0.1;
             x = input::vx * t;
             y = input::h + vy*t - 9.8*t*t/2;
             traj_x.push_back(x);
-            traj_y.push_back(y);
+            traj_y.pushZero();
+            traj_y.set_back(0, y);
+            traj_y.set_back(1, y * 2);
         }
         arrs.setValid();
-        time = t;
+        output::time = t;
         double vfy = vy - 9.8*t;
         speed = std::sqrt(input::vx*input::vx + vfy*vfy);
         scale *= 1.0001;

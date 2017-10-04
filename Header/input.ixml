@@ -15,7 +15,7 @@
         <Var name="speed" type="double" desc="Final speed" unit="m/s"/>
         <Var name="time" type="double" desc="Motion duration" unit="s"/>
         <Var name="traj_x" type="double_vector" desc="x-coordinate" unit="m"/>
-        <Var name="traj_y" type="double_vector" desc="y-coordinate" unit="m"/>
+        <Var name="traj_y" type="double_vector_set" desc="y-coordinate" unit="m"/>
     </Output>
     <ScreenOutput>
         <import filename="scrout.ixml"/>

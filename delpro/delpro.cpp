@@ -65,6 +65,7 @@ int registerVar(QString name, QString type, void *mem, vector<Variable> &contain
     else if (type == "double") item.type = Types::DOUBLE;
     else if (type == "intvector") item.type = Types::INTVECTOR;
     else if (type == "doublevector") item.type = Types::DOUBLEVECTOR;
+    else if (type == "doublevectorset") item.type = Types::DOUBLEVECTORSET;
     else throw QString("Unknown input type");
     item.mem = mem;
 

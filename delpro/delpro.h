@@ -31,7 +31,7 @@ void validateOutput(int index, bool isValid, void *data);
 //Available types
 //-----------------
 //Types of variables
-enum class Types {INT, DOUBLE, INTVECTOR, DOUBLEVECTOR};
+enum class Types {INT, DOUBLE, INTVECTOR, DOUBLEVECTOR, DOUBLEVECTORSET};
 //Types of screen output widgets
 enum class ScreenTypes {TEXTFIELD, PLOT};
 

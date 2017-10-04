@@ -118,7 +118,9 @@ void Plot::attach(QGridLayout &c, int row, int col, int rowspan, int colspan) {
         else if (ss == "dashdot") style = Qt::DashDotLine;
         else if (ss == "dashdotdot") style = Qt::DashDotDotLine;
         y.graph->setPen(QPen(QBrush(QColor(y.y->attributes["color"])), width, style));
-        y.graph->setName(yaxis + y.y->var->desc + " (" + y.y->var->unit + ")");
+        auto name = y.y->var->desc;
+        if (y.y->var->type == Types::DOUBLEVECTORSET) name += "#" + y.y->attributes["index"];
+        y.graph->setName(yaxis + name + " (" + y.y->var->unit + ")");
         //Synchronize curves and legends selection
         connect(plot->legend->itemWithPlottable(y.graph), SIGNAL(selectionChanged(bool)), SLOT(syncGraphsWithLegend(bool)));
         connect(y.graph, SIGNAL(selectionChanged(bool)), SLOT(syncLegendWithGraphs(bool)));
@@ -137,7 +139,14 @@ void Plot::draw() {
         for (Graph::gpair &y : g.ys) {
             if (!y.y->var->isValid) continue;
             if (y.y->var->needUpdate) {
-                y.ydata = QVector<double>::fromStdVector(*static_cast<vector<double>*>(y.y->var->mem)); // ydata to buffer
+                vector<double> *vec;
+                if (y.y->var->type == Types::DOUBLEVECTORSET) {
+                    auto &vecs = *static_cast<vector<vector<double>>*>(y.y->var->mem);
+                    size_t ind = y.y->attributes["index"].toInt();
+                    vec = &vecs[ind];
+                }
+                else vec = static_cast<vector<double>*>(y.y->var->mem);
+                y.ydata = QVector<double>::fromStdVector(*vec); // ydata to buffer
             }
             if (y.y->var->needUpdate || g.x->var->needUpdate) {
                 y.graph->setData(g.xdata, y.ydata);
@@ -182,7 +191,9 @@ void Plot::showContextMenu(const QPoint &point) {
         for (Graph *g : selectedGraphs) {
             str = str + g->x->var->desc + " (" + g->x->var->unit + "), ";
             for (Graph::gpair &gp : g->ys) {
-                if (selectedLines.contains(gp.graph)) str = str + gp.y->var->desc + " (" + gp.y->var->unit + "), ";
+                auto name = gp.y->var->desc;
+                if (gp.y->var->type == Types::DOUBLEVECTORSET) name += "#" + gp.y->attributes["index"];
+                if (selectedLines.contains(gp.graph)) str = str + name + " (" + gp.y->var->unit + "), ";
             }
         }
         str.truncate(str.size() - 2);

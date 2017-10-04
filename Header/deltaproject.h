@@ -99,7 +99,14 @@ class OutputDouble {
         operator double() {return val;}
 };
 
-class OutputDoubleVector {
+class OutputMultiValue {
+    public:
+        virtual void clear() = 0;
+        virtual void setValid(bool val = true) = 0;
+        virtual void resize(size_t n) = 0;
+};
+
+class OutputDoubleVector : public OutputMultiValue {
     private:
         std::vector<double> vec;
         int index;
@@ -109,36 +116,64 @@ class OutputDoubleVector {
         }
         OutputDoubleVector(const OutputDoubleVector&) = delete;
         OutputDoubleVector& operator=(const OutputDoubleVector&) = delete;
-        double& operator[](unsigned long i) {
-            updateOutput(index, ::data);
-            return vec[i];
+        void set(size_t ind, double val) {
+            vec[ind] = val;
+            updateOutput(index, data);
         }
+        double get(size_t ind) {return vec[ind];}
         void push_back(double x) {
             vec.push_back(x);
-            updateOutput(index, ::data);
+            updateOutput(index, data);
         }
-        double& back() {return vec.back();}
-        void clear() {vec.clear();}
+        double back() {return vec.back();}
+        void clear() override {vec.clear();}
         unsigned long size() {return vec.size();}
-        void resize(int n) {vec.resize(n);}
-        void setValid(bool val = true) {validateOutput(index, val, ::data);}
+        void resize(size_t n) override {vec.resize(n);}
+        void setValid(bool val = true) override {validateOutput(index, val, data);}
 };
 
-class OutputVectorCollection {
+class OutputDoubleVectorSet : public OutputMultiValue {
     private:
-        std::vector<OutputDoubleVector*> vecs;
+        std::vector<std::vector<double>> vvec;
+        int index;
+    public:
+        OutputDoubleVectorSet(const char* name) {
+            index = registerOutput(name, "doublevectorset", &vvec, &data);
+        }
+        OutputDoubleVectorSet(const OutputDoubleVectorSet&) = delete;
+        OutputDoubleVectorSet& operator=(const OutputDoubleVectorSet&) = delete;
+        void setNumberOfVectors(size_t n) {vvec.resize(n);}
+        void set(size_t vec, size_t ind, double val) {
+            vvec[vec][ind] = val;
+            updateOutput(index, data);
+        }
+        double get(size_t vec, size_t ind) {return vvec[vec][ind];}
+        void pushZero() {for (auto &vec : vvec) vec.push_back(0);}
+        void set_back(size_t vec, double val) {
+            vvec[vec].back() = val;
+            updateOutput(index, data);
+        }
+        double back(size_t vec) {return vvec[vec].back();}
+        void clear() override {for (auto &vec : vvec) vec.clear();}
+        void resize(size_t n) override {for (auto &vec : vvec) vec.resize(n);}
+        void setValid(bool val = true) override {validateOutput(index, val, data);}
+};
+
+class OutputVectorCollection : public OutputMultiValue {
+    private:
+        std::vector<OutputMultiValue*> vecs;
         void addVector() {}
         template<class... T>
-        void addVector(OutputDoubleVector &fv, T&... vectors) {
+        void addVector(OutputMultiValue &fv, T&... vectors) {
             vecs.push_back(&fv);
             addVector(vectors...);
         }
     public:
         template<class... T>
-        OutputVectorCollection(OutputDoubleVector &fv, T&... vectors) {addVector(fv, vectors...);}
-        void clear() {for (auto v : vecs) v->clear();}
-        void setValid(bool val = true) {for (auto v : vecs) v->setValid(val);}
-        void resize(int n) {for (auto v : vecs) v->resize(n);}
+        OutputVectorCollection(OutputMultiValue &fv, T&... vectors) {addVector(fv, vectors...);}
+        void clear() override {for (auto v : vecs) v->clear();}
+        void setValid(bool val = true) override {for (auto v : vecs) v->setValid(val);}
+        void resize(size_t n) override {for (auto v : vecs) v->resize(n);}
 };
 
 void submeshInputVectors(std::vector<InputDoubleVector*> x0s, std::vector<InputDoubleVector*> y0s,
