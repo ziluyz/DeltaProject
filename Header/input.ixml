@@ -10,6 +10,12 @@
         <Var name="vy" type="double" desc="Vertical velocity" unit="m/s">
             5
 		</Var>
+        <Var name="probe" type="double_vector" desc="Probes" unit="xxx">
+            1.1 4.9     5   5.1     12.2
+		</Var>
+        <Var name="probeV" type="double_vector" desc="Probe values" unit="yyy">
+            1   2       9       1       2
+		</Var>
     </Input>
     <Output>
         <Var name="speed" type="double" desc="Final speed" unit="m/s"/>

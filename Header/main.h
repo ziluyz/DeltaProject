@@ -4,6 +4,8 @@ namespace input {
     InputDouble h("h");
     InputDouble vx("vx");
     InputDouble vy("vy");
+    InputDoubleVector probe("probe");
+    InputDoubleVector probeV("probeV");
 }
 
 namespace output {

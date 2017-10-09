@@ -51,25 +51,24 @@ typedef InputNumber<int> InputInt;
 typedef InputNumber<double> InputDouble;
 
 template<class T>
-class InputNumberVector {
+class InputNumberVector : public std::vector<T> {
     private:
-        std::vector<T> vec;
         int index;
     public:
         InputNumberVector(const char* name) {throw 1;}
-        T operator[](unsigned long i) {return vec[i];}
-        unsigned long size() {return vec.size();}
-        T back() {return vec.back();}
+        InputNumberVector(const InputNumberVector&) = delete;
+        InputNumberVector& operator=(const InputNumberVector&) = delete;
+        T operator[](size_t i) {return std::vector<T>::operator[](i);}
 };
 
 template<>
 InputNumberVector<int>::InputNumberVector(const char *name) {
-    index = registerInput(name, "intvector", &vec, &data);
+    index = registerInput(name, "intvector", this, &::data);
 }
 
 template<>
 InputNumberVector<double>::InputNumberVector(const char *name) {
-    index = registerInput(name, "doublevector", &vec, &data);
+    index = registerInput(name, "doublevector", this, &::data);
 }
 
 typedef InputNumberVector<int> InputIntVector;
@@ -176,13 +175,13 @@ class OutputVectorCollection : public OutputMultiValue {
         void resize(size_t n) override {for (auto v : vecs) v->resize(n);}
 };
 
-void submeshInputVectors(std::vector<InputDoubleVector*> x0s, std::vector<InputDoubleVector*> y0s,
+void submeshInputVectors(std::vector<std::vector<double>*> x0s, std::vector<std::vector<double>*> y0s,
         double dx, std::vector<double> &x, std::vector<std::vector<double>*> ys,
         std::vector<std::vector<double>*> vys) {
     using namespace std;
     struct Channel {
-        InputDoubleVector *x0;
-        InputDoubleVector *y0;
+        vector<double> *x0;
+        vector<double> *y0;
         unsigned long index;
         vector<double> *y;
         vector<double> *vy;
@@ -192,7 +191,7 @@ void submeshInputVectors(std::vector<InputDoubleVector*> x0s, std::vector<InputD
     double tx = (*x0s[0])[0];
     x.clear();
 
-	for (unsigned long i = 0; i < x0s.size(); i++) chs.push_back(Channel{x0s[i], y0s[i],
+	for (size_t i = 0; i < x0s.size(); i++) chs.push_back(Channel{x0s[i], y0s[i],
             0, ys[i], vys[i]});
 
     do {
