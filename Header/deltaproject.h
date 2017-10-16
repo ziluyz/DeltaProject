@@ -206,6 +206,7 @@ class BundleIterator {
     public:
         BundleIterator(size_t ind) : index(ind) {}
         BundleIterator operator*() {return *this;}
+        operator size_t() {return index;}
         bool operator !=(BundleIterator &it) {return (index != it.index);}
         void operator ++() {index++;}
         template <class T>
