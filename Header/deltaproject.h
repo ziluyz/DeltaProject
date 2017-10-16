@@ -158,6 +158,8 @@ class OutputDoubleVectorSet : public OutputMultiValue {
         void setValid(bool val = true) override {validateOutput(index, val, data);}
 };
 
+namespace delta {
+
 class OutputVectorCollection : public OutputMultiValue {
     private:
         std::vector<OutputMultiValue*> vecs;
@@ -175,7 +177,50 @@ class OutputVectorCollection : public OutputMultiValue {
         void resize(size_t n) override {for (auto v : vecs) v->resize(n);}
 };
 
-void submeshInputVectors(std::vector<std::vector<double>*> x0s, std::vector<std::vector<double>*> y0s,
+class BundleIterator;
+
+class Bundle {
+    friend BundleIterator begin(const Bundle&);
+    friend BundleIterator end(const Bundle&);
+    private:
+        size_t len;
+        void addContainer() {}
+        template <class R, class... T>
+            void addContainer(R &c, T&... cs) {
+                if (len) {
+                    if (len != c.size()) throw RuntimeException("Not equal vector sizes in Bundle");
+                }
+                else {
+                    len = c.size();
+                }
+                addContainer(cs...);
+            }
+    public:
+        template <class... T>
+            Bundle(T&... cs) : len(0) {addContainer(cs...);}
+};
+
+class BundleIterator {
+    private:
+        size_t index;
+    public:
+        BundleIterator(size_t ind) : index(ind) {}
+        BundleIterator operator*() {return *this;}
+        bool operator !=(BundleIterator &it) {return (index != it.index);}
+        void operator ++() {index++;}
+        template <class T>
+            T& operator[](std::vector<T> v) {return v[index];}
+};
+
+BundleIterator begin(const Bundle &b) {
+    return BundleIterator(0);
+}
+
+BundleIterator end(const Bundle &b) {
+    return BundleIterator(b.len);
+}
+
+void submeshVectors(std::vector<std::vector<double>*> x0s, std::vector<std::vector<double>*> y0s,
         double dx, std::vector<double> &x, std::vector<std::vector<double>*> ys,
         std::vector<std::vector<double>*> vys) {
     using namespace std;
@@ -218,6 +263,8 @@ void submeshInputVectors(std::vector<std::vector<double>*> x0s, std::vector<std:
     while (tx < (*chs[0].x0).back());
     x.push_back(tx);
     for (auto &ch : chs) (*ch.y).push_back(ch.ty + ch.tvy * (x.back() - ch.tx));
+}
+
 }
 
 #endif

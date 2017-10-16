@@ -1,0 +1,27 @@
+<?xmls version="1.0" encoding="utf-8"?>
+<ScreenOutput>
+    <TextField title="Input parameters" position="1,1:1,1">
+        <InputVar name="h"/>
+        <InputVar name="vx"/>
+        <InputVar name="vy"/>
+    </TextField>
+    <TextField title="Results" position="2,1:1,1">
+        <OutputVar name="speed" />
+        <OutputVar name="time" />
+    </TextField>
+    <Plot title="Траектория" position="1,2:2,1">
+        <OutputVar name="traj_x" xtag="x"/>
+        <OutputVar name="traj_y" index="0" xref="x" color="red"/>
+        <OutputVar name="traj_x" xref="x2" color="#ffd000" width="2"/>
+        <OutputVar name="traj_y" index="0" xtag="x2"/>
+    </Plot>
+    <Plot title="Undulator_x" position="1,3:1,1">
+        <OutputVar name="traj_x" xtag="x"/>
+        <OutputVar name="traj_y" index="0" xref="x" style="dashdot" width="2" color="orange"/>
+        <OutputVar name="traj_y" index="1" xref="x" style="dash" width="2" color="forestgreen"/>
+    </Plot>
+    <Plot title="Undulator_y" position="2,3:1,1">
+        <OutputVar name="traj_x" xref="x2"/>
+        <OutputVar name="traj_y" index="0" xtag="x2"/>
+    </Plot>
+</ScreenOutput>
