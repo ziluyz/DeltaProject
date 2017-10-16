@@ -11,8 +11,8 @@ int maincalc() {
 
     vector<double> v;
     delta::Bundle b(input::probe, input::probeV);
-    for (auto m : b) v.push_back(m[input::probe] + m[input::probeV]);
-    for (auto m : b) cout << m << " : " << m[input::probe] << " + " << m[input::probeV] << " = " << m[v] << endl;
+    for (auto m : b) v.push_back(input::probe[m] + input::probeV[m]);
+    for (auto m : b - 1) cout << m << " : " << input::probe[m] << " + " << input::probeV[m] << " = " << v[m] << endl;
 
     while (output::time < 100) {
         double vy = input::vy * scale;

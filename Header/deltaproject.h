@@ -198,6 +198,11 @@ class Bundle {
     public:
         template <class... T>
             Bundle(T&... cs) : len(0) {addContainer(cs...);}
+        Bundle operator-(size_t dec) {
+            Bundle b;
+            b.len = len - dec;
+            return b;
+        }
 };
 
 class BundleIterator {
@@ -209,8 +214,6 @@ class BundleIterator {
         operator size_t() {return index;}
         bool operator !=(BundleIterator &it) {return (index != it.index);}
         void operator ++() {index++;}
-        template <class T>
-            T& operator[](std::vector<T> v) {return v[index];}
 };
 
 BundleIterator begin(const Bundle &b) {
