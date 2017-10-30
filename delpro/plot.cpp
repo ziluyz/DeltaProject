@@ -155,6 +155,14 @@ void Plot::draw() {
                     usedAxes.insert(y.graph->valueAxis());
                     y.graph->rescaleAxes();
                 }
+                if (y.y->attributes.count("ymin")) y.graph->valueAxis()->setRangeLower(y.y->attributes["ymin"].toInt());
+                if (y.y->attributes.count("ymax")) y.graph->valueAxis()->setRangeUpper(y.y->attributes["ymax"].toInt());
+                if (y.y->attributes.count("ysymmetric")) {
+                    auto rang = y.graph->valueAxis()->range();
+                    double ylim = abs(rang.upper);
+                    if (abs(rang.lower) > ylim) ylim = abs(rang.lower);
+                    y.graph->valueAxis()->setRange(-ylim, ylim);
+                }
             }
         }
     }
