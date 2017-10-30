@@ -18,6 +18,7 @@ void *data = nullptr;
 class RuntimeException : public std::string {
     public:
         RuntimeException(const char* str) : std::string(str) {};
+        RuntimeException(const std::string &str) : std::string(str) {};
 };
 
 
@@ -171,7 +172,7 @@ class OutputVectorCollection : public OutputMultiValue {
         }
     public:
         template<class... T>
-        OutputVectorCollection(OutputMultiValue &fv, T&... vectors) {addVector(fv, vectors...);}
+        OutputVectorCollection(T&... vectors) {addVector(vectors...);}
         void clear() override {for (auto v : vecs) v->clear();}
         void setValid(bool val = true) override {for (auto v : vecs) v->setValid(val);}
         void resize(size_t n) override {for (auto v : vecs) v->resize(n);}
