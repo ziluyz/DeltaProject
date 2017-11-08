@@ -1,0 +1,26 @@
+<?xmls version="1.0" encoding="utf-8"?>
+<Project name="name_of_executable">
+    <import filename="filename"/>
+    <Input>
+        <Var name="name_as_in_code" type="int;double;int_vector;double_vector"
+            desc="description" unit="units">
+            %Comments%
+            Value(s)
+        </Var>
+    </Input>
+    <Output>
+        <Var name="name_as_in_code" type="double;double_vector;double_vector_set" desc="description" unit="units"/>
+    </Output>
+    <ScreenOutput>
+        <TextField;Plot enabled="true;false" title="caption" position="x,y:spanx,spany">
+            <InputVar;OutputVar name="name"/>
+        </TextField>
+        <Plot legend="off;out;right;bottom" legend_wrap="legend_wrap">
+            <InputVar;Outputvar xtag="tag_of_xaxis_given_for_xaxis"
+                xref="tag_of_xaxis_referenced_for_yaxis" yaxis="left;right"
+                ymin="ymin" ymax="ymax" ysymmetric=""
+                index="index_for_double_vector_set"
+                color="color" style="solid;dot;dash;dashdot;dashdotdot" width="width"/>
+        </Plot>
+    </ScreenOutput>
+</Project>
