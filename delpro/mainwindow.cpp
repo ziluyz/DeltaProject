@@ -1,7 +1,7 @@
 #include "mainwindow.h"
 
 // populates itself with ScreenOutput widgets according to their positions
-MainWindow::MainWindow(Data *data) : QWidget(), needUpdate(false)
+MainWindow::MainWindow(Data *data) : QWidget(), needUpdate(true)
 {
     this->data = data;
     Data &d = *data;

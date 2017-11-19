@@ -95,5 +95,32 @@ public:
 int registerVar(QString name, QString type, void *mem, vector<Variable> &container);
 //ixml parser
 void parseInput(Data &data);
+//Formula parser
+class FormulaParser {
+    private:
+        std::string formula;
+        size_t index;
+        char peek() {
+            while (formula[index] == ' ') index++;
+            return formula[index];
+        }
+        char get() {
+            while (formula[index] == ' ') index++;
+            return formula[index++];
+        }
+        double number();
+        double power();
+        double factor();
+        double term();
+        double expression();
+        double x;
+    public:
+        FormulaParser(std::string f) : formula(f) {}
+        double eval(double x) {
+            index = 0;
+            this->x = x;
+            return expression();
+        }
+};
 
 #endif // DELPRO_H

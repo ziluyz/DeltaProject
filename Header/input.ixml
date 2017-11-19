@@ -1,27 +1,24 @@
 <?xmls version="1.0" encoding="utf-8"?>
 <Project name="gravity_motion">
     <Input>
-        <Var name="h" type="double" desc="Height" unit="m">
+        <Var name="a" type="double" desc="Var a" unit="ua">
             10
         </Var>
-        <Var name="vx" type="double" desc="Horizontal velocity" unit="m/s">
+        <Var name="b" type="double" desc="Var b" unit="ub">
             1
 		</Var>
-        <Var name="vy" type="double" desc="Vertical velocity" unit="m/s">
-            5
+        <Var name="va" type="double_vector" desc="Vec a" unit="ua">
+            3_18:x  20
 		</Var>
-        <Var name="probe" type="double_vector" desc="Probes" unit="xxx">
-            1.1 4.9     5   5.1     12.2
-		</Var>
-        <Var name="probeV" type="double_vector" desc="Probe values" unit="yyy">
-            1   2       9       1       2
+        <Var name="vb" type="double_vector" desc="Vec b" unit="ub">
+            1       0_15:sin(x*pi/15)+0.3*cos(x*pi/5)
 		</Var>
     </Input>
     <Output>
-        <Var name="speed" type="double" desc="Final speed" unit="m/s"/>
-        <Var name="time" type="double" desc="Motion duration" unit="s"/>
-        <Var name="traj_x" type="double_vector" desc="x-coordinate" unit="m"/>
-        <Var name="traj_y" type="double_vector_set" desc="y-coordinate" unit="m"/>
+        <Var name="a" type="double" desc="Var oa" unit="ua"/>
+        <Var name="b" type="double" desc="Var ob" unit="ub"/>
+        <Var name="va" type="double_vector" desc="Vec oa" unit="ua"/>
+        <Var name="vb" type="double_vector_set" desc="Vec ob" unit="ub"/>
     </Output>
     <ScreenOutput>
         <import filename="scrout.ixml"/>

@@ -167,11 +167,23 @@ void parseInput(Data &data) {
             }
             break;}
         case Types::DOUBLEVECTOR: {
-            auto list = value.split(QRegExp("\\s+"), QString::SkipEmptyParts);
             auto &vec = *static_cast<vector<double>*>(var.mem);
+            auto list = value.split(QRegExp("\\s+"), QString::SkipEmptyParts);
             for (auto v : list) {
-                vec.push_back(v.toDouble(&ok));
-                if (!ok) break;
+                auto parts = v.split(":");
+                if (parts.size() > 1) {
+                    FormulaParser form(parts[1].toStdString());
+                    auto limits = parts[0].split("_");
+                    auto imin = limits[0].toInt(&ok);
+                    if (!ok) throw QString("Bad imin in " + v);
+                    auto imax = limits[1].toInt(&ok);
+                    if (!ok) throw QString("Bad imax in " + v);
+                    for (int i = imin; i <= imax; i++) vec.push_back(form.eval(i));
+                }
+                else {
+                    vec.push_back(v.toDouble(&ok));
+                    if (!ok) break;
+                }
             }
             break;}
         }
@@ -232,4 +244,85 @@ void parseInput(Data &data) {
             }
         }
     }
+}
+
+double FormulaParser::expression() {
+    auto res = term();
+    while (peek() == '+' || peek() == '-') {
+        if (get() == '+') res += term();
+        else res -= term();
+    }
+    return res;
+}
+
+double FormulaParser::term() {
+    auto res = factor();
+    while (peek() == '*' || peek() == '/') {
+        if (get() == '*') res *= factor();
+        else res /= factor();
+    }
+    return res;
+}
+
+double FormulaParser::factor() {
+    auto res = power();
+    if (peek() == '^') {
+        get();
+        res = pow(res, factor());
+    }
+    return res;
+}
+
+double FormulaParser::power() {
+    double res = 0;
+    if (peek() >= '0' && peek() <= '9') res = number();
+    else if (peek() == '(') {
+        get();
+        res = expression();
+        get();
+    }
+    else if (peek() >= 'a' && peek() <= 'z') {
+        std::string lexem;
+        while (peek() >='a' && peek() <= 'z') lexem += get();
+        if (lexem == "sin") {
+            get();
+            res = sin(expression());
+            get();
+        }
+        else if (lexem == "cos") {
+            get();
+            res = cos(expression());
+            get();
+        }
+        else if (lexem == "pi") res = 3.14159265359;
+        else if (lexem == "x") res = x;
+    }
+    return res;
+}
+
+double FormulaParser::number() {
+    double res = get() - '0';
+    while (peek() >= '0' && peek() <= '9') res = res * 10 + (get() - '0');
+    if (peek() == '.') {
+        get();
+        int exp = 1;
+        double frac = 0;
+        while (peek() >= '0' && peek() <= '9') {
+            frac = frac * 10 + (get() - '0');
+            exp *= 10;
+        }
+        res += frac / exp;
+    }
+    if (peek() == 'e' || peek() == 'E') {
+        get();
+        double exp = 1;
+        if (peek() == '-') {
+            get();
+            exp = -1;
+        }
+        int pok = 0;
+        while (peek() >= '0' && peek() <= '9') pok = pok * 10 + (get() - '0');
+        res = res * pow(exp*10, pok);
+    }
+    return res;
 }
