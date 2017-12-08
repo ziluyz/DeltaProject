@@ -256,7 +256,8 @@ void Plot::showContextMenu(const QPoint &point) {
 
 void Plot::syncGraphsWithLegend(bool hz) {
     for (int i = 0, len = plot->legend->itemCount(); i < len; i++) {
-        static_cast<QCPPlottableLegendItem*>(plot->legend->item(i))->plottable()->
+        auto it = static_cast<QCPPlottableLegendItem*>(plot->legend->item(i));
+        if (it != nullptr) it->plottable()->
                 setSelection(QCPDataSelection(QCPDataRange(0,
                                                            plot->legend->item(i)->selected())));
     }
