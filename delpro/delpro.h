@@ -91,6 +91,7 @@ struct Data {
     vector<Variable> inputVars;
     vector<Variable> outputVars;
     vector<ScreenOutput> screenOutputs;
+    bool paused = false;
 };
 
 //Inner functions

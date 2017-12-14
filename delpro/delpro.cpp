@@ -49,6 +49,8 @@ int execute(int argc, char** argv, int (*f)(), void* data) { // begin main execu
 
 void updateOutput(int index, void *data) { // mark variable as recently changed
     auto &d = *static_cast<Data*>(data);
+    volatile bool &paused = d.paused;
+    while (paused);
     d.outputVars[index].isNew = true;
 }
 

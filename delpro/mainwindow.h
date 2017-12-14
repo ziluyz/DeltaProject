@@ -19,6 +19,7 @@ class MainWindow : public QWidget
 private:
     Data *data; // pointer to main data block
     set<shared_ptr<Wgt>> toDraw; // set of widgets which are necessary to redraw during timerEvent
+    QPushButton *pauseButton;
     QLabel *timeLabel;
 public:
     explicit MainWindow(Data *data);
@@ -32,6 +33,7 @@ signals:
 
 public slots:
     void calcFinished();
+    void pauseClicked();
 };
 
 #endif // MAINWINDOW_H

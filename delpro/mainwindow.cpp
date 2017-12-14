@@ -11,6 +11,9 @@ MainWindow::MainWindow(Data *data) : QWidget(), needUpdate(true)
     //Control Panel
     QBoxLayout *controlPanel = new QBoxLayout(QBoxLayout::TopToBottom);
     mainBox->addLayout(controlPanel, 0);
+    pauseButton = new QPushButton("Pause");
+    connect(pauseButton, SIGNAL(clicked(bool)), SLOT(pauseClicked()));
+    controlPanel->addWidget(pauseButton);
     timeLabel = new QLabel();
     controlPanel->addWidget(timeLabel);
     //Output Widgets
@@ -117,3 +120,8 @@ void MainWindow::calcFinished() {
     data->chronoEnd = chrono::steady_clock::now();
 }
 
+void MainWindow::pauseClicked() {
+    data->paused = !data->paused;
+    if (data->paused) pauseButton->setText("Resume");
+    else pauseButton->setText("Pause");
+}
