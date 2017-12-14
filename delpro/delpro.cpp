@@ -19,6 +19,7 @@ int registerOutput(const char* name, const char* type, void *var, void *pdata) {
 int execute(int argc, char** argv, int (*f)(), void* data) { // begin main execution cycle
     auto &d = *static_cast<Data*>(data);
     d.startTime = QDateTime::currentDateTime();
+    d.chronoStart = chrono::steady_clock::now();
     d.inputFile = "input.ixml"; // use input.ixml as default
     if (argc > 1) d.inputFile = argv[1]; // if not provided in arguments
     try { // all exceptions should be in the form of QString
@@ -31,10 +32,12 @@ int execute(int argc, char** argv, int (*f)(), void* data) { // begin main execu
         window.showMaximized();
         window.startTimer(500); // Timer works as screen updater with 2 Hz frequency
 
-        CalcThread thread(f); // run maincalc
-        thread.start(QThread::HighPriority);
+        d.thread = new CalcThread(f); // run maincalc
+        QObject::connect(d.thread, SIGNAL(finished()), &window, SLOT(calcFinished()));
+        d.thread->start(QThread::HighPriority);
 
         app.exec(); // run Qt execution cycle
+        delete d.thread;
     }
     catch (QString str) {
         cout << str.toStdString() << endl;

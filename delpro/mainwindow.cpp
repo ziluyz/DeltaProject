@@ -5,8 +5,17 @@ MainWindow::MainWindow(Data *data) : QWidget(), needUpdate(true)
 {
     this->data = data;
     Data &d = *data;
+    //Main Layout
+    QBoxLayout *mainBox = new QBoxLayout(QBoxLayout::RightToLeft);
+    setLayout(mainBox);
+    //Control Panel
+    QBoxLayout *controlPanel = new QBoxLayout(QBoxLayout::TopToBottom);
+    mainBox->addLayout(controlPanel, 0);
+    timeLabel = new QLabel();
+    controlPanel->addWidget(timeLabel);
+    //Output Widgets
     QGridLayout *lay = new QGridLayout();
-    setLayout(lay);
+    mainBox->addLayout(lay, 1);
     // cycle over all ScrrenOutputs
     for (ScreenOutput &sout : d.screenOutputs) {
         // constructing widgets according to types
@@ -37,6 +46,25 @@ MainWindow::MainWindow(Data *data) : QWidget(), needUpdate(true)
 }
 
 void MainWindow::timerEvent(QTimerEvent *event) {
+    auto end = chrono::steady_clock::now();
+    if (data->thread->isFinished()) end = data->chronoEnd;
+    double tdur = chrono::duration_cast<chrono::duration<double>>(end - data->chronoStart).count();
+    int hours = tdur / 3600;
+    tdur -= hours * 3600;
+    int minutes = tdur / 60;
+    tdur -= minutes * 60;
+    int seconds = tdur;
+    tdur -= seconds;
+    int millis = tdur * 1000;
+    QString time = QString::number(hours) + ":";
+    if (minutes < 10) time += "0";
+    time += QString::number(minutes) + ":";
+    if (seconds < 10) time += "0";
+    time += QString::number(seconds) + ":";
+    if (millis < 100) time += "0";
+    if (millis < 10) time += "0";
+    time += QString::number(millis);
+    timeLabel->setText(time);
     if (!needUpdate) return; // gllobal flag shows if redraw is necessary at all
     toDraw.clear(); // set should contain only those which really contain recently updated data
     for (Variable& var : data->inputVars) {
@@ -84,3 +112,8 @@ unique_ptr<QDir> MainWindow::outputFolder() {
     // return pointer to output path
     return dir;
 }
+
+void MainWindow::calcFinished() {
+    data->chronoEnd = chrono::steady_clock::now();
+}
+

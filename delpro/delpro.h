@@ -8,6 +8,7 @@
 #include <memory>
 #include "mainwindow.h"
 #include "wgt.h"
+#include <chrono>
 
 //interface to libdelpro.so
 //-------------------------
@@ -66,19 +67,6 @@ struct ScreenOutput {
     vector<OutputItem> items;
 };
 
-//Main data block
-//used to communicate between libdelpro.so and calling program when registering and updating variables
-//initialized by the first variable registering
-struct Data {
-    MainWindow *window;
-    QDateTime startTime; // used to name folder when saving data
-    QString inputFile; // name of input ixml
-    QDomDocument inputIXML; // processed input ixml
-    vector<Variable> inputVars;
-    vector<Variable> outputVars;
-    vector<ScreenOutput> screenOutputs;
-};
-
 //Thread for maincalc
 class CalcThread : public QThread
 {
@@ -87,6 +75,22 @@ private:
 public:
     CalcThread(int (*f)()) : QThread() {fun = f;} // f should point to maincalc
     void run() override {fun();}
+};
+
+//Main data block
+//used to communicate between libdelpro.so and calling program when registering and updating variables
+//initialized by the first variable registering
+struct Data {
+    MainWindow *window;
+    CalcThread *thread;
+    QDateTime startTime; // used to name folder when saving data
+    chrono::time_point<chrono::steady_clock> chronoStart; // used for elapsed time calculation;
+    chrono::time_point<chrono::steady_clock> chronoEnd;
+    QString inputFile; // name of input ixml
+    QDomDocument inputIXML; // processed input ixml
+    vector<Variable> inputVars;
+    vector<Variable> outputVars;
+    vector<ScreenOutput> screenOutputs;
 };
 
 //Inner functions

@@ -19,6 +19,7 @@ class MainWindow : public QWidget
 private:
     Data *data; // pointer to main data block
     set<shared_ptr<Wgt>> toDraw; // set of widgets which are necessary to redraw during timerEvent
+    QLabel *timeLabel;
 public:
     explicit MainWindow(Data *data);
     bool needUpdate; // global flag set to true when any variable gets update
@@ -30,6 +31,7 @@ protected:
 signals:
 
 public slots:
+    void calcFinished();
 };
 
 #endif // MAINWINDOW_H
