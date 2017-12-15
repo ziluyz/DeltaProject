@@ -49,6 +49,7 @@ MainWindow::MainWindow(Data *data) : QWidget(), needUpdate(true)
 }
 
 void MainWindow::timerEvent(QTimerEvent *event) {
+    if (data->paused) return;
     auto end = chrono::steady_clock::now();
     if (data->thread->isFinished()) end = data->chronoEnd;
     double tdur = chrono::duration_cast<chrono::duration<double>>(end - data->chronoStart).count();
@@ -116,12 +117,23 @@ unique_ptr<QDir> MainWindow::outputFolder() {
     return dir;
 }
 
+void MainWindow::calcStarted() {
+    data->chronoStart = chrono::steady_clock::now();
+}
+
 void MainWindow::calcFinished() {
     data->chronoEnd = chrono::steady_clock::now();
+    pauseButton->setEnabled(false);
 }
 
 void MainWindow::pauseClicked() {
     data->paused = !data->paused;
-    if (data->paused) pauseButton->setText("Resume");
-    else pauseButton->setText("Pause");
+    if (data->paused) {
+        pauseButton->setText("Resume");
+        timePaused = chrono::steady_clock::now();
+    }
+    else {
+        pauseButton->setText("Pause");
+        data->chronoStart += chrono::steady_clock::now() - timePaused;
+    }
 }

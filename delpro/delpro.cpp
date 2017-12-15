@@ -33,6 +33,7 @@ int execute(int argc, char** argv, int (*f)(), void* data) { // begin main execu
         window.startTimer(500); // Timer works as screen updater with 2 Hz frequency
 
         d.thread = new CalcThread(f); // run maincalc
+        QObject::connect(d.thread, SIGNAL(started()), &window, SLOT(calcStarted()));
         QObject::connect(d.thread, SIGNAL(finished()), &window, SLOT(calcFinished()));
         d.thread->start(QThread::HighPriority);
 

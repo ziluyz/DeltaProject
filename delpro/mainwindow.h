@@ -21,6 +21,7 @@ private:
     set<shared_ptr<Wgt>> toDraw; // set of widgets which are necessary to redraw during timerEvent
     QPushButton *pauseButton;
     QLabel *timeLabel;
+    chrono::time_point<chrono::steady_clock> timePaused;
 public:
     explicit MainWindow(Data *data);
     bool needUpdate; // global flag set to true when any variable gets update
@@ -32,6 +33,7 @@ protected:
 signals:
 
 public slots:
+    void calcStarted();
     void calcFinished();
     void pauseClicked();
 };
