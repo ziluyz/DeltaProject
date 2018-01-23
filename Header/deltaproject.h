@@ -1,5 +1,6 @@
 #ifndef _DELTA_P
 #define _DELTA_P
+#define V(name) name(#name);
 
 #include <vector>
 #include <string>
