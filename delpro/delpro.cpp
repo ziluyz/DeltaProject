@@ -175,6 +175,26 @@ void parseInput(Data &data) {
         case Types::DOUBLEVECTOR: {
             auto &vec = *static_cast<vector<double>*>(var.mem);
             auto list = value.split(QRegExp("\\s+"), QString::SkipEmptyParts);
+            auto detectFile = value.split(QRegExp("#"), QString::SkipEmptyParts);
+            if (detectFile.size() > 1) {
+                QString filename = detectFile[0].trimmed();
+                QFile file(filename);
+                if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) throw QString("Cannot open file ") + filename;
+                QTextStream in(&file);
+                bool lok;
+                auto col = detectFile[1].trimmed().toInt(&lok);
+                if (!lok) throw QString("Cannot parse column number for input from file") + filename;
+                list.clear();
+                int line = 0;
+                while (!in.atEnd()) {
+                    line++;
+                    auto sline = in.readLine();
+                    if (sline == "") continue;
+                    auto cols = sline.split(QRegExp(","), QString::SkipEmptyParts);
+                    if (col > cols.size()) throw QString("Cannot read column ") + QString::number(col) + " in line " + QString::number(line) + " of " + filename;
+                    list.append(cols[col - 1]);
+                }
+            }
             for (auto v : list) {
                 auto parts = v.split(":");
                 if (parts.size() > 1) {
