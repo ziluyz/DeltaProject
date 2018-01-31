@@ -38,9 +38,9 @@ int execute(int argc, char** argv, int (*f)(), void* data) { // begin main execu
         d.thread->start(QThread::HighPriority);
 
         app.exec(); // run Qt execution cycle
-        delete d.thread;
         d.thread->terminate();
         d.thread->wait();
+        delete d.thread;
     }
     catch (QString str) {
         cout << str.toStdString() << endl;
