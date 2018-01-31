@@ -84,7 +84,7 @@ int registerVar(QString name, QString type, void *mem, vector<Variable> &contain
 void parseInput(Data &data) {
     QFile file(data.inputFile);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) throw QString("Error opening input file");
-    QDomDocument &doc = data.inputIXML;
+    QDomDocument doc;
     QString parsError;
     int errorLine;
     if (!doc.setContent(&file, false, &parsError, &errorLine)) {
@@ -114,6 +114,7 @@ void parseInput(Data &data) {
                 throw QString("Error parsing import file\n") + parsError + "\nLine: " + QString::number(errorLine);
             }
             file.close();
+            data.filesToSave.insert(filename);
             auto iroot = idoc.documentElement();
             auto iel = iroot.firstChild();
             while (!iel.isNull()) {
@@ -196,6 +197,7 @@ void parseInput(Data &data) {
                     if (col > cols.size()) throw QString("Cannot read column ") + QString::number(col) + " in line " + QString::number(line) + " of " + filename;
                     list.append(cols[col - 1]);
                 }
+                data.filesToSave.insert(filename);
             }
             for (auto v : list) {
                 auto parts = v.split(":");

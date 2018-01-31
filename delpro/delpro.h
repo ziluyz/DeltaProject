@@ -87,7 +87,7 @@ struct Data {
     chrono::time_point<chrono::steady_clock> chronoStart; // used for elapsed time calculation;
     chrono::time_point<chrono::steady_clock> chronoEnd;
     QString inputFile; // name of input ixml
-    QDomDocument inputIXML; // processed input ixml
+    QSet<QString> filesToSave; // processed input ixml
     vector<Variable> inputVars;
     vector<Variable> outputVars;
     vector<ScreenOutput> screenOutputs;

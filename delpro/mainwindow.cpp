@@ -105,12 +105,9 @@ unique_ptr<QDir> MainWindow::outputFolder() {
     if (!dir->exists(folder)) {
         dir->mkdir(folder);
         dir->cd(folder);
-        // ...and copy input ixml there
-        //QFile::copy(QDir().absoluteFilePath(data->inputFile), dir->absoluteFilePath(data->inputFile));
-        QFile file(dir->absoluteFilePath(data->inputFile));
-        file.open(QFile::WriteOnly | QFile::Truncate);
-        QTextStream tstr(&file);
-        data->inputIXML.save(tstr, 4);
+        // ...and copy input ixml and all other necessary files there
+        QFile::copy(QDir().absoluteFilePath(data->inputFile), dir->absoluteFilePath(data->inputFile));
+        for (auto filename : data->filesToSave) QFile::copy(QDir().absoluteFilePath(filename), dir->absoluteFilePath(filename));
     }
     else dir->cd(folder);
     // return pointer to output path
