@@ -1,26 +1,40 @@
 <?xmls version="1.0" encoding="utf-8"?>
-<Project name="gravity_motion">
+<Project name="sim">
     <Input>
-        <Var name="a" type="double" desc="Var a" unit="ua">
-            10
-        </Var>
-        <Var name="b" type="double" desc="Var b" unit="ub">
-            1
+        <Var name="zA" type="double_vector" desc="z for Vec A" unit="uz">
+            0   1   1   5   5   10      15
 		</Var>
-        <Var name="va" type="double_vector" desc="Vec a" unit="ua">
-            3_18:x  20
+        <Var name="A" type="double_vector" desc="Vec A" unit="uA">
+            1   1   1.1 1.1 1   1       2
 		</Var>
-        <Var name="vb" type="double_vector" desc="Vec b" unit="ub">
-            1       0_15:sin(x*pi/15)+0.3*cos(x*pi/5)
+        <Var name="zB" type="double_vector" desc="z for Vec B" unit="uz">
+            -1  0    4   40
+		</Var>
+        <Var name="B" type="double_vector" desc="Vec B" unit="uB">
+            0   0   1   1
+		</Var>
+        <Var name="zC" type="double_vector" desc="z for Vec C" unit="uz">
+            -1   0   4   40
+		</Var>
+        <Var name="C" type="double_vector" desc="Vec C" unit="uC">
+            1   4   9   16
+		</Var>
+        <Var name="dz" type="double" desc="dz" unit="uz">
+            0.4
 		</Var>
     </Input>
     <Output>
-        <Var name="a" type="double" desc="Var oa" unit="ua"/>
-        <Var name="b" type="double" desc="Var ob" unit="ub"/>
-        <Var name="va" type="double_vector" desc="Vec oa" unit="ua"/>
-        <Var name="vb" type="double_vector_set" desc="Vec ob" unit="ub"/>
+        <Var name="z" type="double" desc="z" unit="uz"/>
+        <Var name="A" type="double_vector" desc="A" unit="uA"/>
+        <Var name="B" type="double_vector" desc="B" unit="uB"/>
+        <Var name="C" type="double_vector" desc="C" unit="uC"/>
     </Output>
     <ScreenOutput>
-        <import filename="scrout.ixml"/>
+        <TextField title="Arrays" position="1,1:1,1">
+            <OutputVar name="z"/>
+            <OutputVar name="A"/>
+            <OutputVar name="B"/>
+            <OutputVar name="C"/>
+        </TextField>
     </ScreenOutput>
 </Project>

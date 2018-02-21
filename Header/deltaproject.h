@@ -5,6 +5,7 @@
 #include <vector>
 #include <string>
 #include <iostream>
+#include <cmath>
 
 extern int registerInput(const char*, const char*, void* , void*);
 extern int registerOutput(const char*, const char*, void* , void*);
@@ -237,6 +238,7 @@ void submeshVectors(std::vector<std::vector<double>*> x0s, std::vector<std::vect
         vector<double> *y;
         vector<double> *vy;
         double tx, ty, tvy;
+        double steptvy;
     };
     vector<Channel> chs;
     double tx = (*x0s[0])[0];
@@ -255,7 +257,7 @@ void submeshVectors(std::vector<std::vector<double>*> x0s, std::vector<std::vect
             ch.tvy = (ny - ch.ty) / ((*ch.x0)[ch.index + 1] - ch.tx);
             if ((*ch.x0)[ch.index + 1] < nx) nx = (*ch.x0)[ch.index + 1];
         }
-        int np = (nx - tx) / dx + 1;
+        int np = (nx - tx) / (dx * 1.00001) + 1;
         double rdx = (nx - tx) / np;
         for (int i = 0; i < np; i++) {
             x.push_back(tx + rdx * i);
@@ -265,6 +267,22 @@ void submeshVectors(std::vector<std::vector<double>*> x0s, std::vector<std::vect
             }
         }
         tx = nx;
+        bool step = false;
+        for (auto &ch : chs) {
+            ch.steptvy = ch.tvy;
+            if (ch.index < ch.x0->size() - 2 && abs((*ch.x0)[ch.index + 2] - tx) < 1e-7 &&
+                    abs((*ch.y0)[ch.index + 2] - (*ch.y0)[ch.index + 1]) > 1e-7) {
+                step = true;
+                ch.steptvy = INFINITY;
+            }
+        }
+        if (step) {
+            x.push_back(tx);
+            for (auto &ch : chs) {
+                (*ch.y).push_back(ch.ty + ch.tvy * (tx - ch.tx));
+                if (ch.vy != nullptr) (*ch.vy).push_back(ch.steptvy);
+            }
+        }
     }
     while (tx < (*chs[0].x0).back());
     x.push_back(tx);
