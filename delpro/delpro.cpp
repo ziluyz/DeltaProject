@@ -324,6 +324,21 @@ double FormulaParser::power() {
             res = cos(expression());
             get();
         }
+        else if (lexem =="sqrt") {
+            get();
+            res = sqrt(expression());
+            get();
+        }
+        else if (lexem =="exp") {
+            get();
+            res = exp(expression());
+            get();
+        }
+        else if (lexem =="ln") {
+            get();
+            res = log(expression());
+            get();
+        }
         else if (lexem == "pi") res = 3.14159265359;
         else if (lexem == "x") res = x;
     }
