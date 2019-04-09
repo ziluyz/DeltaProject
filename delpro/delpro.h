@@ -32,7 +32,7 @@ void validateOutput(int index, bool isValid, void *data);
 //Available types
 //-----------------
 //Types of variables
-enum class Types {INT, DOUBLE, INTVECTOR, DOUBLEVECTOR, DOUBLEVECTORSET};
+enum class Types {INT, DOUBLE, INTVECTOR, DOUBLEVECTOR, DOUBLEVECTORSET, SYSFLAG};
 //Types of screen output widgets
 enum class ScreenTypes {TEXTFIELD, PLOT};
 
@@ -92,6 +92,7 @@ struct Data {
     vector<Variable> outputVars;
     vector<ScreenOutput> screenOutputs;
     bool paused = false;
+    int *termFlag = nullptr;
 };
 
 //Inner functions

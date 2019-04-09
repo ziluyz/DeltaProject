@@ -23,9 +23,9 @@ class RuntimeException : public std::string {
         RuntimeException(const std::string &str) : std::string(str) {};
 };
 
-
 int main(int argc, char** argv) {
-    return execute(argc, argv, maincalc, data);
+    auto res = execute(argc, argv, maincalc, data);
+    return res;
 }
 
 template<class T>
@@ -161,7 +161,21 @@ class OutputDoubleVectorSet : public OutputMultiValue {
         void setValid(bool val = true) override {validateOutput(index, val, data);}
 };
 
+class SystemFlag {
+    private:
+        int val = 2;
+    public:
+        SystemFlag(const char *name) {registerOutput(name, "sysflag", &val, &data);}
+        SystemFlag(const SystemFlag&) = delete;
+        operator bool() {
+            if (val) val = 1; // if ever looked up from maincalc()
+            return val != 0;
+        }
+};
+
 namespace delta {
+
+SystemFlag noquit("__system_noquit");
 
 class OutputVectorCollection : public OutputMultiValue {
     private:

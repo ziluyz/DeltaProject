@@ -37,9 +37,17 @@ int execute(int argc, char** argv, int (*f)(), void* data) { // begin main execu
         QObject::connect(d.thread, SIGNAL(finished()), &window, SLOT(calcFinished()));
         d.thread->start(QThread::HighPriority);
 
+        cout << "Starting execution..." << endl;
         app.exec(); // run Qt execution cycle
-        d.thread->terminate();
-        d.thread->wait();
+        if (d.thread->isRunning()) {
+            if (d.termFlag == nullptr) d.thread->terminate();
+            else if (*d.termFlag == 2) {
+                *d.termFlag = 0;
+                d.thread->terminate();
+            }
+            else *d.termFlag = 0;
+            d.thread->wait();
+        }
         delete d.thread;
     }
     catch (QString str) {
@@ -53,7 +61,11 @@ int execute(int argc, char** argv, int (*f)(), void* data) { // begin main execu
 void updateOutput(int index, void *data) { // mark variable as recently changed
     auto &d = *static_cast<Data*>(data);
     volatile bool &paused = d.paused;
-    while (paused);
+    if (d.termFlag == nullptr) while (paused);
+    else {
+        volatile int &term = *d.termFlag;
+        while (term && paused);
+    }
     d.outputVars[index].isNew = true;
 }
 
@@ -69,11 +81,13 @@ int registerVar(QString name, QString type, void *mem, vector<Variable> &contain
     container.emplace_back();
     auto& item = container.back();
     item.name = name;
+    cout << "..registering " << name.toStdString() << " of " << type.toStdString() << endl;
     if (type == "int") item.type = Types::INT;
     else if (type == "double") item.type = Types::DOUBLE;
     else if (type == "intvector") item.type = Types::INTVECTOR;
     else if (type == "doublevector") item.type = Types::DOUBLEVECTOR;
     else if (type == "doublevectorset") item.type = Types::DOUBLEVECTORSET;
+    else if (type == "sysflag") item.type = Types::SYSFLAG;
     else throw QString("Unknown input type");
     item.mem = mem;
 
@@ -223,6 +237,10 @@ void parseInput(Data &data) {
     //------------------Output Section-------------------------------------------------------------
     auto output = root.elementsByTagName("Output").at(0).childNodes();
     for (auto &var : data.outputVars) {
+        if (var.type == Types::SYSFLAG) {
+            if (var.name == "__system_noquit") data.termFlag = reinterpret_cast<int*>(var.mem);
+            continue;
+        }
         int ind = find(output, var.name);
         if (ind == -1) throw QString("No records in ") + data.inputFile + " for output " + var.name;
         auto el = output.at(ind).toElement();
