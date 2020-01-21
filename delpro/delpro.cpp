@@ -368,7 +368,7 @@ double FormulaParser::number() {
     while (peek() >= '0' && peek() <= '9') res = res * 10 + (get() - '0');
     if (peek() == '.') {
         get();
-        int exp = 1;
+        double exp = 1;
         double frac = 0;
         while (peek() >= '0' && peek() <= '9') {
             frac = frac * 10 + (get() - '0');
@@ -378,14 +378,14 @@ double FormulaParser::number() {
     }
     if (peek() == 'e' || peek() == 'E') {
         get();
-        double exp = 1;
+        int sgn = 1;
         if (peek() == '-') {
             get();
-            exp = -1;
+            sgn = -1;
         }
         int pok = 0;
         while (peek() >= '0' && peek() <= '9') pok = pok * 10 + (get() - '0');
-        res = res * pow(exp*10, pok);
+        res = res * pow(10, sgn * pok);
     }
     return res;
 }
