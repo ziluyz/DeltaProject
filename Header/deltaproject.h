@@ -1,6 +1,12 @@
 #ifndef _DELTA_P
 #define _DELTA_P
-#define V(name) name(#name);
+#define II(name) static InputInt name(#name);
+#define ID(name) static InputDouble name(#name);
+#define IIV(name) static InputIntVector name(#name);
+#define IDV(name) static InputDoubleVector name(#name);
+#define OD(name) static OutputDouble name(#name);
+#define ODV(name) static OutputDoubleVector name(#name);
+#define ODVS(name) static OutputDoubleVectorSet name(#name);
 
 #include <vector>
 #include <string>
