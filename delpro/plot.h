@@ -1,41 +1,73 @@
 #ifndef PLOT_H
 #define PLOT_H
 
-#include "qcustomplot.h"
 #include "wgt.h"
+#include <gtkmm/drawingarea.h>
+#include <valarray>
+#include <vector>
+#include <unordered_map>
+#include <plstream.h>
+#include <gtkmm/menu.h>
+#include <iostream>
 
 using namespace std;
 
-struct OutputItem;
+struct DisplyedItem;
 
 //Plotting graphs based on DoubleVectors
-class Plot : public QObject, public Wgt {
-    Q_OBJECT
+class Plot : public Wgt, public Gtk::DrawingArea {
 private:
     //A set of QCPGraphs with the same x data
     struct Graph {
-        //A variable, its QVector buffer and corresponding QCPGraph
-        struct gpair {
-            OutputItem *y;
-            QVector<double> ydata;
-            QCPGraph *graph;
+        //A variable, its plot data buffer and corresponding QCPGraph
+        struct gtuple {
+            DisplyedItem *y;
+            valarray<double> ydata;
+            bool yright;
+            int color;
+            vector<PLINT> draws;
+            vector<PLINT> spaces;
+            PLFLT width;
+            string title;
         };
 
-        QString xtag; // tag for x value in ixml
-        OutputItem *x; // x variable
-        QVector<double> xdata; // buffer for x variable
-        vector<gpair> ys; // from the set of y variable referencing the xtag (xref="xtag") in ixml
+        string xtag; // tag for x value in ixml
+        DisplyedItem *x; // x variable
+        valarray<double> xdata; // buffer for x variable
+        vector<gtuple> ys; // from the set of y variable referencing the xtag (xref="xtag") in ixml
     };
-    QCustomPlot *plot; // main plot object
+    struct Legend {
+        PLFLT legend_width, legend_height;
+        PLINT nlegend;
+        vector<PLINT> opt_array;
+        vector<PLINT> text_colors;
+        vector<PLINT> line_colors;
+        vector<PLINT> line_styles;
+        vector<PLFLT> line_widths;
+        vector<char*> texts;
+    };
+    vector<double> minmax;
+    vector<int> foundminmax;
+    bool needlefty, needrighty;
+    const static unordered_map<string, int> colorind;
     vector<Graph> graphs; // vector.size = number of different xtags in this ScreenOutput
+    Legend legend;
+    string xtitle;
+    Gtk::Menu *pmenu;
+    bool scrollright;
+    void makeplot(const Cairo::RefPtr<Cairo::Context>&, int, int, bool = false);
+
+protected:
+    bool on_draw(const Cairo::RefPtr<Cairo::Context> &cr) override;
+    bool on_button_press_event(GdkEventButton*) override;
+    bool on_scroll_event(GdkEventScroll*) override;
+
 public:
-    Plot(ScreenOutput *sout);
-    void attach(QGridLayout& c, int row, int col, int rowspan, int colspan) override;
+    Plot(MainWindow*, ScreenOutput*);
+    void attach(Gtk::Grid& c, int row, int col, int rowspan, int colspan) override;
     void draw() override;
-public slots:
-    void showContextMenu(const QPoint &point); // for RButton menu
-    void syncGraphsWithLegend(bool hz); // to synchronize the selection of curves...
-    void syncLegendWithGraphs(bool hz); // ...and corresponding legends
+    void setscroll(bool right) {scrollright = right; queue_draw();};
+    ~Plot() {if (pmenu!=nullptr) delete pmenu;};
 };
 
 #endif // PLOT_H

@@ -1,14 +1,15 @@
 #ifndef DELPRO_H
 #define DELPRO_H
 
-#include "delpro_global.h"
-#include <QThread>
-#include <QtWidgets>
-#include <QDomDocument>
 #include <memory>
 #include "mainwindow.h"
 #include "wgt.h"
 #include <chrono>
+#include <string>
+#include <glibmm/datetime.h>
+#include <unordered_map>
+#include <set>
+#include <thread>
 
 //interface to libdelpro.so
 //-------------------------
@@ -43,11 +44,11 @@ class MainWindow; // Main window class
 
 //Inner structure of input and output variables
 struct Variable {
-    QString name; // provided by calling program via register(In)(Out)put
+    string name; // provided by calling program via register(In)(Out)put
     void *mem; // pointer to real variable data, provided by calling program
     Types type; // one of available
-    QString desc; // verbal description, provided by input ixml
-    QString unit; // variable physical units, provided by input ixml
+    string desc; // verbal description, provided by input ixml
+    string unit; // variable physical units, provided by input ixml
     bool isNew; // shows if data were recently changed, controlled by updateOutput
     bool isValid; // shows if data are valid, controlled by validateOutput
     bool needUpdate; // shows if data is waiting for screen update, controlled by MainWindow timer event
@@ -55,26 +56,32 @@ struct Variable {
 };
 
 //Item of the output widget along with its attributes as is got from input ixml
-struct OutputItem {
+struct DisplyedItem {
     Variable *var;
-    QHash<QString,QString> attributes;
+    unordered_map<string,string> attributes;
 };
 
 //Record for output widget as is got from input ixml
 struct ScreenOutput {
     ScreenTypes type;
-    QHash<QString,QString> attributes;
-    vector<OutputItem> items;
+    unordered_map<string,string> attributes;
+    vector<DisplyedItem> items;
 };
 
 //Thread for maincalc
-class CalcThread : public QThread
+class CalcThread
 {
 private:
     int (*fun)();
+    bool finished;
+    thread *pthread;
+    MainWindow &window;
+    static int calc(CalcThread *);
 public:
-    CalcThread(int (*f)()) : QThread() {fun = f;} // f should point to maincalc
-    void run() override {fun();}
+    CalcThread(int (*f)(), MainWindow &win) : fun(f), finished(false), window(win) {}; // f should point to maincalc
+    ~CalcThread();
+    void run();
+    bool isRunning() {return !finished;};
 };
 
 //Main data block
@@ -83,11 +90,11 @@ public:
 struct Data {
     MainWindow *window;
     CalcThread *thread;
-    QDateTime startTime; // used to name folder when saving data
+    Glib::DateTime startTime; // used to name folder when saving data
     chrono::time_point<chrono::steady_clock> chronoStart; // used for elapsed time calculation;
     chrono::time_point<chrono::steady_clock> chronoEnd;
-    QString inputFile; // name of input ixml
-    QSet<QString> filesToSave; // processed input ixml
+    string inputFile; // name of input ixml
+    set<string> filesToSave; // processed input ixml
     vector<Variable> inputVars;
     vector<Variable> outputVars;
     vector<ScreenOutput> screenOutputs;
@@ -98,9 +105,11 @@ struct Data {
 //Inner functions
 //---------------
 //Common variable registrator
-int registerVar(QString name, QString type, void *mem, vector<Variable> &container);
+int registerVar(string name, string type, void *mem, vector<Variable> &container);
 //ixml parser
 void parseInput(Data &data);
+//split string
+vector<string> split(const string&, const string&);
 //Formula parser
 class FormulaParser {
     private:

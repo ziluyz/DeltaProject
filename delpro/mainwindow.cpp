@@ -1,57 +1,63 @@
 #include "mainwindow.h"
+#include <glib.h>
+#include <glib/gstdio.h>
+#include <glibmm/miscutils.h>
+#include <giomm/file.h>
+#include <locale.h>
 
 // populates itself with ScreenOutput widgets according to their positions
-MainWindow::MainWindow(Data *data) : QWidget(), needUpdate(true)
+MainWindow::MainWindow(Data *data) : pauseButton("Pause"), needUpdate(true)
 {
     this->data = data;
     Data &d = *data;
     //Main Layout
-    QBoxLayout *mainBox = new QBoxLayout(QBoxLayout::RightToLeft);
-    setLayout(mainBox);
-    //Control Panel
-    QBoxLayout *controlPanel = new QBoxLayout(QBoxLayout::TopToBottom);
-    mainBox->addLayout(controlPanel, 0);
-    pauseButton = new QPushButton("Pause");
-    connect(pauseButton, SIGNAL(clicked(bool)), SLOT(pauseClicked()));
-    controlPanel->addWidget(pauseButton);
-    timeLabel = new QLabel();
-    controlPanel->addWidget(timeLabel);
-    //Output Widgets
-    QGridLayout *lay = new QGridLayout();
-    mainBox->addLayout(lay, 1);
+    setlocale(LC_ALL, "en_US.UTF-8");
+    add(mainBox);
+    controlPanel.set_orientation(Gtk::ORIENTATION_VERTICAL);
+    mainBox.pack_end(controlPanel, Gtk::PACK_SHRINK, 10);
+    pauseButton.signal_clicked().connect(sigc::bind<Glib::ustring>(sigc::mem_fun(*this, &MainWindow::pauseClicked), "pause"));
+    controlPanel.pack_start(pauseButton, Gtk::PACK_SHRINK, 10);
+    pauseButton.show();
+    controlPanel.pack_start(timeLabel, Gtk::PACK_SHRINK);
+    timeLabel.show();
+    controlPanel.show();
+    mainBox.pack_end(lay);
+    lay.set_row_homogeneous(true);
     // cycle over all ScrrenOutputs
-    for (ScreenOutput &sout : d.screenOutputs) {
+    for (auto &sout : d.screenOutputs) {
         // constructing widgets according to types
         switch (sout.type) {
         case ScreenTypes::TEXTFIELD:
-            content.emplace_back(new TextField(&sout));
+            content.emplace_back(new TextField(this, &sout));
             break;
         case ScreenTypes::PLOT:
-            content.emplace_back(new Plot(&sout));
+            content.emplace_back(new Plot(this, &sout));
             break;
         default:
-            throw QString("Error initializing ScreenOutput");
+            throw string("Error initializing ScreenOutput");
             break;
         }
         // extracting widget position in the layout
-        QString pos = sout.attributes["position"];
-        QStringList sp = pos.split(':');
-        if (sp.size() != 2) throw QString("Invalid position ") + pos + " of ScreenOutput";
-        QStringList coords = sp.at(0).split(',');
-        if (coords.size() != 2) throw QString("Invalid position ") + pos + " of ScreenOutput";
-        QStringList spans = sp.at(1).split(',');
-        if (spans.size() != 2) throw QString("Invalid position ") + pos + " of ScreenOutput";
+        auto pos = sout.attributes["position"];
+        auto sp = split(pos, ":");
+        if (sp.size() != 2) throw string("Invalid position ") + pos + " of ScreenOutput";
+        auto coords = split(sp[0], ",");
+        if (coords.size() != 2) throw string("Invalid position ") + pos + " of ScreenOutput";
+        auto spans = split(sp[1], ",");
+        if (spans.size() != 2) throw string("Invalid position ") + pos + " of ScreenOutput";
         // attaching widget to the layout
-        content.back()->attach(*lay, coords.at(1).toInt() - 1, coords.at(0).toInt() - 1, spans.at(1).toInt(), spans.at(0).toInt());
+        content.back()->attach(lay, stoi(coords[1]) - 1, stoi(coords[0]) - 1, stoi(spans[1]), stoi(spans[0]));
         // each variable knows all the widgets it is drawn by
-        for (OutputItem &item : sout.items) item.var->wgts.push_back(content.back());
+        for (auto &item : sout.items) item.var->wgts.push_back(content.back());
     }
+    lay.show_all();
+    mainBox.show();
 }
 
-void MainWindow::timerEvent(QTimerEvent *event) {
-    if (data->paused) return;
+bool MainWindow::timerEvent() {
+    if (data->paused) return true;
     auto end = chrono::steady_clock::now();
-    if (data->thread->isFinished()) end = data->chronoEnd;
+    if (!data->thread->isRunning()) end = data->chronoEnd;
     double tdur = chrono::duration_cast<chrono::duration<double>>(end - data->chronoStart).count();
     int hours = tdur / 3600;
     tdur -= hours * 3600;
@@ -60,58 +66,58 @@ void MainWindow::timerEvent(QTimerEvent *event) {
     int seconds = tdur;
     tdur -= seconds;
     int millis = tdur * 1000;
-    QString time = QString::number(hours) + ":";
+    auto time = to_string(hours) + ":";
     if (minutes < 10) time += "0";
-    time += QString::number(minutes) + ":";
+    time += to_string(minutes) + ":";
     if (seconds < 10) time += "0";
-    time += QString::number(seconds) + ":";
+    time += to_string(seconds) + ":";
     if (millis < 100) time += "0";
     if (millis < 10) time += "0";
-    time += QString::number(millis);
-    timeLabel->setText(time);
-    if (!needUpdate) return; // gllobal flag shows if redraw is necessary at all
+    time += to_string(millis);
+    timeLabel.set_text(time);
+    if (!needUpdate) return true; // gllobal flag shows if redraw is necessary at all
     toDraw.clear(); // set should contain only those which really contain recently updated data
-    for (Variable& var : data->inputVars) {
+    for (auto &var : data->inputVars) {
         if (var.isNew) { // input variables are always valid
             var.isNew = false;
             var.needUpdate = true;
-            for (shared_ptr<Wgt> wgt : var.wgts) toDraw.insert(wgt);
+            for (auto wgt : var.wgts) toDraw.insert(wgt);
         }
         else var.needUpdate = false;
     }
-    for (Variable& var : data->outputVars) {
+    for (auto &var : data->outputVars) {
         if (var.isNew && var.isValid) { // output variable can be updated but invalid
             var.isNew = false;
             var.needUpdate = true;
-            for (shared_ptr<Wgt> wgt : var.wgts) toDraw.insert(wgt);
+            for (auto wgt : var.wgts) toDraw.insert(wgt);
         }
         else var.needUpdate = false;
     }
     // draw what should be drawn
-    for (shared_ptr<Wgt> wgt : toDraw) {
+    for (auto wgt : toDraw) {
         wgt->draw();
     }
     needUpdate = false; // waiting for new updates
+    return true;
 }
 
 // generate output folder for this particular run or return existing, if already exists
-unique_ptr<QDir> MainWindow::outputFolder() {
-    unique_ptr<QDir> dir(new QDir());
-    // if common ./Output folder does not exist, create it
-    if (!dir->exists("Output")) dir->mkdir("Output");
-    dir->cd("Output");
+string MainWindow::outputFolder() {
     // if output folder for the current run does not exist, create it...
-    QString folder = data->startTime.toString("yyMMdd_hhmmss_zzz");
-    if (!dir->exists(folder)) {
-        dir->mkdir(folder);
-        dir->cd(folder);
-        // ...and copy input ixml and all other necessary files there
-        QFile::copy(QDir().absoluteFilePath(data->inputFile), dir->absoluteFilePath(data->inputFile));
-        for (auto filename : data->filesToSave) QFile::copy(QDir().absoluteFilePath(filename), dir->absoluteFilePath(filename));
+    auto folder = data->startTime.format("%y%m%d:%H%M%S");
+    auto fulfolder = Glib::build_filename("Output", folder);
+    if (!g_file_test(fulfolder.data(), G_FILE_TEST_EXISTS)) {
+        g_mkdir_with_parents(fulfolder.data(), 0755);
+        auto dest = Gio::File::create_for_path(fulfolder + "/" + data->inputFile);
+        auto inf = Gio::File::create_for_path(data->inputFile);
+        inf->copy(dest);
+        for (auto filename : data->filesToSave) {
+            dest = Gio::File::create_for_path(fulfolder + "/" + filename);
+            inf = Gio::File::create_for_path(filename);
+            inf->copy(dest);
+        }
     }
-    else dir->cd(folder);
-    // return pointer to output path
-    return dir;
+    return fulfolder;
 }
 
 void MainWindow::calcStarted() {
@@ -120,17 +126,17 @@ void MainWindow::calcStarted() {
 
 void MainWindow::calcFinished() {
     data->chronoEnd = chrono::steady_clock::now();
-    pauseButton->setEnabled(false);
+    pauseButton.set_sensitive(false);
 }
 
-void MainWindow::pauseClicked() {
+void MainWindow::pauseClicked(Glib::ustring inf) {
     data->paused = !data->paused;
     if (data->paused) {
-        pauseButton->setText("Resume");
+        pauseButton.set_label("Resume");
         timePaused = chrono::steady_clock::now();
     }
     else {
-        pauseButton->setText("Pause");
+        pauseButton.set_label("Pause");
         data->chronoStart += chrono::steady_clock::now() - timePaused;
     }
 }

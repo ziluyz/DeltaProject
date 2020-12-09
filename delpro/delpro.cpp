@@ -1,6 +1,10 @@
 #include "delpro.h"
 #include <iostream>
-#include <QApplication>
+#include <fstream>
+#include <gtkmm/application.h>
+#include <glibmm/main.h>
+#include "rapidxml.hpp"
+#include "rapidxml_utils.hpp"
 
 using namespace std;
 
@@ -18,40 +22,35 @@ int registerOutput(const char* name, const char* type, void *var, void *pdata) {
 
 int execute(int argc, char** argv, int (*f)(), void* data) { // begin main execution cycle
     auto &d = *static_cast<Data*>(data);
-    d.startTime = QDateTime::currentDateTime();
+    d.startTime = Glib::DateTime::create_now_local();
     d.chronoStart = chrono::steady_clock::now();
     d.inputFile = "input.ixml"; // use input.ixml as default
     if (argc > 1) d.inputFile = argv[1]; // if not provided in arguments
-    try { // all exceptions should be in the form of QString
+    try { // all exceptions should be in the form of std::string
         parseInput(d); // fill Data from ixml
 
-        QApplication app(argc, argv); // Qt application
+        argc = 1; // command line arguments are handled in main(), not by the Gtk::Application
+        auto app = Gtk::Application::create(argc, argv, "ziluyz.gamil.com"); // GTK application
 
         MainWindow window(&d);
         d.window = &window;
-        window.showMaximized();
-        window.startTimer(500); // Timer works as screen updater with 2 Hz frequency
+        window.maximize();
+        Glib::signal_timeout().connect(sigc::mem_fun(window, &MainWindow::timerEvent), 500);// Timer works as screen updater with 2 Hz frequency
 
-        d.thread = new CalcThread(f); // run maincalc
-        QObject::connect(d.thread, SIGNAL(started()), &window, SLOT(calcStarted()));
-        QObject::connect(d.thread, SIGNAL(finished()), &window, SLOT(calcFinished()));
-        d.thread->start(QThread::HighPriority);
+        d.thread = new CalcThread(f, window); // run maincalc
+        d.thread->run();
 
         cout << "Starting execution..." << endl;
-        app.exec(); // run Qt execution cycle
+        app->run(window); // run execution cycle
         if (d.thread->isRunning()) {
-            if (d.termFlag == nullptr) d.thread->terminate();
-            else if (*d.termFlag == 2) {
-                *d.termFlag = 0;
-                d.thread->terminate();
-            }
-            else *d.termFlag = 0;
-            d.thread->wait();
+            if (d.termFlag == nullptr) throw 1;
+            else if (*d.termFlag == 2) throw 2;
+            *d.termFlag = 0;
         }
         delete d.thread;
     }
-    catch (QString str) {
-        cout << str.toStdString() << endl;
+    catch (string str) {
+        cout << str << endl;
         return 1;
     }
 
@@ -71,24 +70,30 @@ void updateOutput(int index, void *data) { // mark variable as recently changed
 
 void validateOutput(int index, bool isValid, void *data) { // mark variable as (in)valid
     auto &d = *static_cast<Data*>(data);
+    volatile bool &paused = d.paused;
+    if (d.termFlag == nullptr) while (paused);
+    else {
+        volatile int &term = *d.termFlag;
+        while (term && paused);
+    }
     d.outputVars[index].isValid = isValid;
     d.window->needUpdate = d.window->needUpdate || isValid; // update global MainWindow flag
 }
 
 //Common variable registration function
 //Updates corresponding Data containers
-int registerVar(QString name, QString type, void *mem, vector<Variable> &container) {
+int registerVar(string name, string type, void *mem, vector<Variable> &container) {
     container.emplace_back();
     auto& item = container.back();
     item.name = name;
-    cout << "..registering " << name.toStdString() << " of " << type.toStdString() << endl;
+    cout << "..registering " << name << " of " << type << endl;
     if (type == "int") item.type = Types::INT;
     else if (type == "double") item.type = Types::DOUBLE;
     else if (type == "intvector") item.type = Types::INTVECTOR;
     else if (type == "doublevector") item.type = Types::DOUBLEVECTOR;
     else if (type == "doublevectorset") item.type = Types::DOUBLEVECTORSET;
     else if (type == "sysflag") item.type = Types::SYSFLAG;
-    else throw QString("Unknown input type");
+    else throw string("Unknown input type");
     item.mem = mem;
 
     return container.size() - 1;
@@ -96,161 +101,142 @@ int registerVar(QString name, QString type, void *mem, vector<Variable> &contain
 
 //ixml parser
 void parseInput(Data &data) {
-    QFile file(data.inputFile);
-    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) throw QString("Error opening input file");
-    QDomDocument doc;
-    QString parsError;
-    int errorLine;
-    if (!doc.setContent(&file, false, &parsError, &errorLine)) {
-        file.close();
-        throw QString("Error parsing input file\n") + parsError + "\nLine: " + QString::number(errorLine);
+    rapidxml::file<> mfData(data.inputFile.data());
+    rapidxml::xml_document<> doc;
+    try {
+        doc.parse<0>(mfData.data());
     }
-    file.close();
-
-    //Processing all imports
-    bool imported;
-    do {
-        auto list = doc.elementsByTagName("import");
-        int len = list.size();
-        imported = false;
-        for (int i = 0; i < len; i++) {
-            imported = true;
-            auto el = list.at(i).toElement();
-            auto par = el.parentNode();
-
-            QString filename = el.attribute("filename","");
-            file.setFileName(filename);
-            if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) throw QString("Error opening import file " + filename);
-
-            QDomDocument idoc("to_import");
-            if (!idoc.setContent(&file, false, &parsError, &errorLine)) {
-                file.close();
-                throw QString("Error parsing import file\n") + parsError + "\nLine: " + QString::number(errorLine);
-            }
-            file.close();
-            data.filesToSave.insert(filename);
-            auto iroot = idoc.documentElement();
-            auto iel = iroot.firstChild();
-            while (!iel.isNull()) {
-                auto nel = iel.nextSibling();
-                par.insertBefore(iel, el);
-                iel = nel;
-            }
-            par.removeChild(el);
-        }
+    catch (rapidxml::parse_error err) {
+        throw err.what();
     }
-    while (imported);
+    auto proot = doc.first_node("Project");
+    if (proot == nullptr) throw string("No Project node in the ixml");
+    auto &root = *proot;
 
-    auto root = doc.documentElement();
-
-    auto find = [](QDomNodeList &list, QString &name) { // find "Var" node wih name in list
-        for (int i = 0, len = list.size(); i < len; i++) {
-            auto node = list.at(i);
-            if (node.nodeName() != "Var") continue;
-            if (!node.toElement().hasAttribute("name")) continue;
-            if (node.toElement().attribute("name") == name) return i; // return index if found
+    auto find = [](const rapidxml::xml_node<> *node, const string &name) { // find "Var" node wih name in list
+        auto el = node->first_node("Var");
+        while (el != nullptr) {
+            if (el->first_attribute("name")->value() == name) return el; // return node if found
+            el = el->next_sibling("Var");
         }
-        return -1; // return -1 if not found
+        return el; // return nullptr if not found
+    };
+
+    auto strip = [](string &s) -> string & {
+        size_t b = 0;
+        while (s[b] == ' ' || s[b] == '\t' || s[b] == '\n' || s[b] == '\r') b++;
+        s.erase(0, b);
+        b = s.size() - 1;
+        while (s[b] == ' ' || s[b] == '\t' || s[b] == '\n' || s[b] == '\r') b--;
+        s.erase(b + 1, -1);
+        return s;
     };
 
     //------------------Input Section--------------------------------------------------------------
-    auto input = root.elementsByTagName("Input").at(0).childNodes();
+    auto input = root.first_node("Input");
     for (auto &var : data.inputVars) { // find data for every registered input variable
-        int ind = find(input, var.name);
-        if (ind == -1) throw QString("No input for ") + var.name;
-        auto el = input.at(ind).toElement();
-        var.desc = el.attribute("desc");
-        var.unit = el.attribute("unit");
+        auto el = find(input, var.name);
+        if (el == nullptr) throw string("No input for ") + var.name;
+        auto pattr = el->first_attribute("desc");
+        var.desc = pattr == nullptr ? "" : pattr->value();
+        pattr = el->first_attribute("unit");
+        var.unit = pattr == nullptr ? "" : pattr->value();
         var.isNew = var.isValid = true; // inputs are initially new and valid
-        bool ok;
-        auto value = el.firstChild().nodeValue();
+        string value = el->value();
 
         //exclude comments placed between % from data
-        auto comlist = value.split("%");
-        value.clear();
-        bool incl = true;
-        for (auto el : comlist) {
-            if (incl) value = value + el;
-            incl = !incl;
+        size_t pos = 0;
+        while ((pos = value.find('%')) != string::npos) {
+            value.erase(pos, value.find('%', pos + 1) - pos + 1);
         }
+        strip(value);
 
-        switch (var.type) {
-        case Types::INT:
-            *static_cast<int*>(var.mem)=value.toInt(&ok);
-            break;
-        case Types::DOUBLE:
-            *static_cast<double*>(var.mem)=value.toDouble(&ok);
-            break;
-        case Types::INTVECTOR: {
-            auto list = value.split(QRegExp("\\s+"), QString::SkipEmptyParts);
-            auto &vec = *static_cast<vector<int>*>(var.mem);
-            for (auto v : list) {
-                vec.push_back(v.toInt(&ok));
-                if (!ok) break;
+        try {
+            switch (var.type)
+            {
+            case Types::INT:
+                *static_cast<int *>(var.mem) = stoi(value);
+                break;
+            case Types::DOUBLE:
+                *static_cast<double *>(var.mem) = stod(value);
+                break;
+            case Types::INTVECTOR:
+            {
+                auto list = split(value, " \t\r,");
+                auto &vec = *static_cast<vector<int> *>(var.mem);
+                for (auto v : list) vec.push_back(stoi(v));
+                break;
             }
-            break;}
-        case Types::DOUBLEVECTOR: {
-            auto &vec = *static_cast<vector<double>*>(var.mem);
-            auto list = value.split(QRegExp("\\s+"), QString::SkipEmptyParts);
-            auto detectFile = value.split(QRegExp("#"), QString::SkipEmptyParts);
-            if (detectFile.size() > 1) {
-                QString filename = detectFile[0].trimmed();
-                QFile file(filename);
-                if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) throw QString("Cannot open file ") + filename;
-                QTextStream in(&file);
-                bool lok;
-                auto col = detectFile[1].trimmed().toInt(&lok);
-                if (!lok) throw QString("Cannot parse column number for input from file") + filename;
-                list.clear();
-                int line = 0;
-                while (!in.atEnd()) {
-                    line++;
-                    auto sline = in.readLine();
-                    if (sline == "") continue;
-                    auto cols = sline.split(QRegExp(","), QString::SkipEmptyParts);
-                    if (col > cols.size()) throw QString("Cannot read column ") + QString::number(col) + " in line " + QString::number(line) + " of " + filename;
-                    list.append(cols[col - 1]);
+            case Types::DOUBLEVECTOR:
+            {
+                auto &vec = *static_cast<vector<double> *>(var.mem);
+                auto list = split(value, " \t\r,");
+                auto detectFile = split(value, "#");
+                if (detectFile.size() > 1)
+                {
+                    auto col = stoi(strip(detectFile[1]));
+                    auto filename = strip(detectFile[0]);
+                    fstream file;
+                    file.open(filename, ios::in);
+                    if (file.is_open()) {
+                        list.clear();
+                        int line = 0;
+                        string ts;
+                        while (getline(file, ts)) {
+                            line++;
+                            if (ts == "")
+                                continue;
+                            auto cols = split(ts, ",");
+                            if (col > cols.size())
+                                throw string("Cannot read column ") + to_string(col) + " in line " + to_string(line) + " of " + filename;
+                            list.push_back(strip(cols[col - 1]));
+                        }
+                        file.close();
+                        data.filesToSave.insert(filename);
+                    }
+                    else throw string("Cannot open file ") + filename;
                 }
-                data.filesToSave.insert(filename);
+                for (auto v : list)
+                {
+                    auto parts = split(v, ":");
+                    if (parts.size() > 1)
+                    {
+                        FormulaParser form(strip(parts[1]));
+                        auto limits = split(strip(parts[0]), "_");
+                        auto imin = stoi(strip(limits[0]));
+                        auto imax = stoi(strip(limits[1]));
+                        for (int i = imin; i <= imax; i++)
+                            vec.push_back(form.eval(i));
+                    }
+                    else vec.push_back(stod(v));
+                }
+                break;
             }
-            for (auto v : list) {
-                auto parts = v.split(":");
-                if (parts.size() > 1) {
-                    FormulaParser form(parts[1].toStdString());
-                    auto limits = parts[0].split("_");
-                    auto imin = limits[0].toInt(&ok);
-                    if (!ok) throw QString("Bad imin in " + v);
-                    auto imax = limits[1].toInt(&ok);
-                    if (!ok) throw QString("Bad imax in " + v);
-                    for (int i = imin; i <= imax; i++) vec.push_back(form.eval(i));
-                }
-                else {
-                    vec.push_back(v.toDouble(&ok));
-                    if (!ok) break;
-                }
             }
-            break;}
         }
-        if (!ok) throw QString("Error parsing value of ") + var.name + " from " + value;
+        catch (...) {
+            throw string("Error parsing value of ") + var.name + " from " + value;
+        }
     }
 
     //------------------Output Section-------------------------------------------------------------
-    auto output = root.elementsByTagName("Output").at(0).childNodes();
+    auto output = root.first_node("Output");
     for (auto &var : data.outputVars) {
         if (var.type == Types::SYSFLAG) {
             if (var.name == "__system_noquit") data.termFlag = reinterpret_cast<int*>(var.mem);
             continue;
         }
-        int ind = find(output, var.name);
-        if (ind == -1) throw QString("No records in ") + data.inputFile + " for output " + var.name;
-        auto el = output.at(ind).toElement();
-        var.desc = el.attribute("desc");
-        var.unit = el.attribute("unit");
+        auto el = find(output, var.name);
+        if (el == nullptr) throw string("No records in ") + data.inputFile + " for output " + var.name;
+        auto pattr = el->first_attribute("desc");
+        var.desc = pattr == nullptr ? "" : pattr->value();
+        pattr = el->first_attribute("unit");
+        var.unit = pattr == nullptr ? "" : pattr->value();
         var.isNew = var.isValid = false;
     }
 
     //------------------ScreenOutput Section-------------------------------------------------------
-    auto findItem = [&data](QString name, bool isOutput) { // find variable in Data by name
+    auto findItem = [&data](const string name, bool isOutput) { // find variable in Data by name
         auto vars = &data.inputVars;
         if (isOutput) vars = &data.outputVars;
         for (auto& var : *vars) {
@@ -259,38 +245,86 @@ void parseInput(Data &data) {
         return static_cast<Variable*>(nullptr); // return nullptr if not found
     };
 
-    auto soutputs = root.elementsByTagName("ScreenOutput").at(0).childNodes();
-    for (int i = 0; i < soutputs.size(); i++) {
-        auto sout = soutputs.at(i);
+    auto sout = root.first_node("ScreenOutput")->first_node();
+    while (sout != nullptr) {
         data.screenOutputs.emplace_back();
         auto& wgt = data.screenOutputs.back();
-        auto name = sout.nodeName();
+        string name = sout->name();
         if (name == "TextField") wgt.type = ScreenTypes::TEXTFIELD;
         else if (name == "Plot") wgt.type = ScreenTypes::PLOT;
-        else throw QString("Unknown ScreenOutput type ") + sout.nodeName();
+        else throw string("Unknown ScreenOutput type ") + name;
 
         //Reading attributes of ScreenOutput
-        auto attrmap = sout.attributes();
-        for (int k = 0; k < attrmap.size(); k++) {
-            wgt.attributes.insert(attrmap.item(k).nodeName(), attrmap.item(k).nodeValue());
+        auto attr = sout->first_attribute();
+        while (attr != nullptr) {
+            wgt.attributes[attr->name()] = attr->value();
+            attr = attr->next_attribute();
         }
 
-        auto content = sout.childNodes();
-        for (int j = 0; j < content.size(); j++) {
-            auto rec = content.at(j);
+        auto rec = sout->first_node();
+        while (rec != nullptr) {
             wgt.items.emplace_back();
-            OutputItem &item = wgt.items.back();
+            DisplyedItem &item = wgt.items.back();
             bool isOutput = true;
-            if (rec.nodeName() == "InputVar") isOutput = false;
-            item.var = findItem(rec.toElement().attribute("name"), isOutput);
-            if (item.var == nullptr) throw QString("Cannot find variable '") +
-                    rec.toElement().attribute("name") + "' for ScreenOutput '" + name + "'";
+            if (string(rec->name()) == "InputVar") isOutput = false;
+            auto pattr = rec->first_attribute("name");
+            if (pattr == nullptr) throw string("No name for variable in ") + sout->name();
+            item.var = findItem(pattr->value(), isOutput);
+            if (item.var == nullptr) throw string("Cannot find variable '") +
+                    pattr->value() + "' for ScreenOutput '" + name + "'";
             //Reading attributes of OutputItem
-            attrmap = rec.attributes();
-            for (int k = 0; k < attrmap.size(); k++) {
-                item.attributes.insert(attrmap.item(k).nodeName(), attrmap.item(k).nodeValue());
+            attr = rec->first_attribute();
+            while (attr != nullptr) {
+                item.attributes[attr->name()] = attr->value();
+                attr = attr->next_attribute();
+            }
+            rec = rec->next_sibling();
+        }
+        sout = sout->next_sibling();
+    }
+}
+
+vector<string> split(const string &s, const string &del) {
+    vector<string> res;
+    bool mode = false;
+    size_t beg = 0;
+    for (size_t ind = 0, len = s.size(); ind < len; ind++) {
+        bool space = false;
+        for (auto c : del) {
+            if (c == s[ind]) {
+                space = true;
+                break;
             }
         }
+        if (space && !mode) {
+            mode = true;
+            if (ind) res.push_back(s.substr(beg, ind - beg));
+        }
+        else if (!space && mode) {
+            mode = false;
+            beg = ind;
+        }
+    }
+    if (!mode) res.push_back(s.substr(beg, -1));
+    return res;
+};
+
+int CalcThread::calc(CalcThread *pthr) {
+    pthr->window.calcStarted();
+    auto res = pthr->fun();
+    pthr->window.calcFinished();
+    pthr->finished = true;
+    return res;
+}
+
+void CalcThread::run() {
+    pthread = new thread(calc, this);
+}
+
+CalcThread::~CalcThread() {
+    if (pthread != nullptr) {
+        if (pthread->joinable()) pthread->join();
+        delete pthread;
     }
 }
 

@@ -1,271 +1,452 @@
 #include "plot.h"
-#include "mainwindow.h"
 #include <algorithm>
+#include <giomm/simpleactiongroup.h>
+#include <gtkmm/builder.h>
+#include <fstream>
 
-Plot::Plot(ScreenOutput *sout) : QObject(), Wgt(sout) {
-    plot = new QCustomPlot();
-    //Setting automatically processed mouse events
-    plot->setInteractions(QCP::iRangeDrag | QCP::iRangeZoom | QCP::iSelectPlottables | QCP::iSelectLegend | QCP::iMultiSelect);
+const unordered_map<string, int> Plot::colorind {
+    {"black", 0},
+    {"red", 1},
+    {"yellow", 2},
+    {"blue", 9},
+    {"green", 3},
+    {"magenta", 13},
+    {"brown", 8}
+};
 
-    //Positioning of the legend
-    QString legend = source->attributes["legend"];
-    QString lwrap = source->attributes["legend_wrap"];
-    int lw;
-    bool ok;
-    lw = lwrap.toInt(&ok);
-    if (!ok) lw = 2;
-    if (legend == "off");
-    else {
-        plot->legend->setVisible(true);
-        plot->legend->setSelectableParts(QCPLegend::spItems);
-        if (legend == "out" || legend == "right") {
-            QCPLayoutGrid *subLayout = new QCPLayoutGrid();
-            plot->plotLayout()->addElement(0, 1, subLayout);
-            subLayout->setMargins(QMargins(0,5,5,5));
-            subLayout->addElement(0, 0, plot->legend);
-            subLayout->insertRow(1);
-            subLayout->setRowStretchFactor(1,100);
-            plot->plotLayout()->setColumnStretchFactor(1,0.001);
-        }
-        else if (legend == "bottom") {
-            QCPLayoutGrid *subLayout = new QCPLayoutGrid();
-            plot->plotLayout()->addElement(1, 0, subLayout);
-            subLayout->setMargins(QMargins(5,0,5,5));
-            subLayout->addElement(0, 0, plot->legend);
-            plot->legend->setFillOrder(QCPLegend::foColumnsFirst);
-            plot->legend->setWrap(lw);
-            plot->plotLayout()->setRowStretchFactor(1,0.001);
-        }
-    }
-
+Plot::Plot(MainWindow *wnd, ScreenOutput *sout) : Wgt(wnd, sout), minmax(8), foundminmax(8 ,0), needlefty(false), needrighty(false) {
     //Find Graph with given xtag
-    auto find = [](QString xtag, vector<Graph> &gs) {
-        for (Graph &g : gs) {
+    auto find = [](const string &xtag, vector<Graph> &gs) {
+        for (auto &g : gs) {
             if (g.xtag == xtag) return &g; // and return pointer to it
         }
         return static_cast<Graph*>(nullptr); // or nullptr
     };
 
     //Populate graphs depending on xtag and xref attributes
-    for (OutputItem &item : source->items) {
-        if (item.attributes.contains("xtag")) {
-            QString xtag = item.attributes["xtag"];
+    for (DisplyedItem &item : source->items) {
+        if (item.attributes.count("xtag")) {
+            auto xtag = item.attributes["xtag"];
+            auto pg = find(xtag, graphs);
+            if (pg == nullptr) {
+                graphs.emplace_back();
+                auto &g = graphs.back();
+                g.xtag = xtag;
+                pg = &g;
+            }
+            else if (pg->x != nullptr) throw string("Double xtag for Plot");
+            pg->x = &item;
+            xtitle = (pg->x->var->desc + " (" + pg->x->var->unit + ")");
+        }
+        else if (item.attributes.count("xref")) {
+            auto xtag = item.attributes["xref"];
             Graph *pg = find(xtag, graphs);
             if (pg == nullptr) {
                 graphs.emplace_back();
-                Graph &g = graphs.back();
+                auto &g = graphs.back();
                 g.xtag = xtag;
-                g.x = &item;
-                plot->xAxis->setLabel(g.x->var->desc + " (" + g.x->var->unit + ")");
+                pg = &g;
             }
-            else {
-                if (pg->x != nullptr) throw QString("Double xtag for Plot");
-                pg->x = &item;
-                plot->xAxis->setLabel(pg->x->var->desc + " (" + pg->x->var->unit + ")");
+            pg->ys.emplace_back();
+            auto &y = pg->ys.back();
+            y.y = &item;
+            //extract color
+            y.color = 0;
+            if (item.attributes.count("color")) {
+                auto &color = item.attributes["color"];
+                if (colorind.count(color)) y.color = colorind.at(color);
             }
+            //extract width
+            y.width = 1;
+            if (item.attributes.count("width")) {
+                y.width = stod(item.attributes["width"]);
+            }
+            //extract style
+            if (item.attributes.count("style")) {
+                auto &style = item.attributes["style"];
+                if (style == "dot") {
+                    y.draws = {200};
+                    y.spaces = {2000};
+                }
+                else if (style == "dash") {
+                    y.draws = {2000};
+                    y.spaces = {2000};
+                }
+                else if (style == "dashdot") {
+                    y.draws = {2000, 200};
+                    y.spaces = {2000, 2000};
+                }
+                else if (style == "dashdotdot") {
+                    y.draws = {2000, 200, 200};
+                    y.spaces = {2000, 2000, 2000};
+                }
+            }
+            //extract yaxis position
+            y.yright = false;
+            if (item.attributes.count("yaxis")) {
+                if (item.attributes["yaxis"] == "right") y.yright = true;
+            }
+            if (y.yright) needrighty = true;
+            else needlefty = true;
+            //extract ylimits
+            if (item.attributes.count("ymin")) {
+                int ind = y.yright ? 6 : 2;
+                if (!foundminmax[ind]) {
+                    minmax[ind] = stod(item.attributes["ymin"]);
+                    foundminmax[ind] = 2;
+                }
+            }
+            if (item.attributes.count("ymax")) {
+                int ind = y.yright ? 7 : 3;
+                if (!foundminmax[ind]) {
+                    minmax[ind] = stod(item.attributes["ymax"]);
+                    foundminmax[ind] = 2;
+                }
+            }
+            if (item.attributes.count("ysymmetric") && item.attributes["ysymmetric"] == "true") {
+                int ind = y.yright ? 6 : 2;
+                auto min = abs(minmax[ind]);
+                auto max = abs(minmax[ind + 1]);
+                if (foundminmax[ind] && foundminmax[ind + 1]) {
+                    if (min > max) max = min;
+                    minmax[ind] = -max;
+                    minmax[ind + 1] = max;
+                }
+                else if (foundminmax[ind]) {
+                    if (minmax[ind] < 0) minmax[ind + 1] = min;
+                }
+                else if (foundminmax[ind + 1]) {
+                    if (minmax[ind + 1] > 0) minmax[ind] = -max;
+                }
+            }
+            //extract title
+            if (y.yright) y.title = "[R] ";
+            else y.title = "[L] ";
+            y.title += y.y->var->desc;
+            if (y.y->var->type == Types::DOUBLEVECTORSET) y.title += "#" + y.y->attributes["index"];
+            y.title += " (" + y.y->var->unit + ")";
+            //fill Legend
+            legend.opt_array.push_back(PL_LEGEND_LINE);
+            legend.text_colors.push_back(0);
+            auto txt = const_cast<char*>(y.title.data());
+            legend.texts.push_back(txt);
+            legend.line_colors.push_back(y.color);
+            legend.line_styles.push_back(1);
+            legend.line_widths.push_back(y.width);
         }
-        else if (item.attributes.contains("xref")) {
-            QString xtag = item.attributes["xref"];
-            Graph *pg = find(xtag, graphs);
-            if (pg == nullptr) {
-                graphs.emplace_back();
-                Graph &g = graphs.back();
-                g.xtag = xtag;
-                g.ys.emplace_back();
-                g.ys.back().y = &item;
-            }
-            else {
-                pg->ys.emplace_back();
-                pg->ys.back().y = &item;
-            }
-        }
-        else throw QString("Neither xtag nor xref for item in Plot");
+        else throw string("Neither xtag nor xref for item in Plot");
     }
-    for (Graph &g : graphs) {
-        if (g.x == nullptr) throw QString("No xtag for xref ") + g.xtag;
-        if (g.ys.size() == 0) throw QString("No xref for xtag") + g.xtag;
+    for (auto &g : graphs) {
+        if (g.x == nullptr) throw string("No xtag for xref ") + g.xtag;
+        if (g.ys.size() == 0) throw string("No xref for xtag") + g.xtag;
     }
+    legend.nlegend = legend.opt_array.size();
+    scrollright = !needlefty;
 }
 
-void Plot::attach(QGridLayout &c, int row, int col, int rowspan, int colspan) {
-    QVBoxLayout *holder = new QVBoxLayout();
-    holder->setContentsMargins(0,15,0,0);
-    //Setting Title
-    QLabel *title = new QLabel(source->attributes["title"]);
-    title->setFont(QFont("Helvetica",11,QFont::Bold));
-    holder->addWidget(title, 0, Qt::AlignHCenter);
-    holder->addWidget(plot, 1);
-    c.addLayout(holder, row, col, rowspan, colspan);
-    for (Graph &g : graphs) for (Graph::gpair &y : g.ys) {
-        //Choosing y-axis position
-        QString yaxis = y.y->attributes["yaxis"];
-        if (yaxis == "right") {
-            yaxis = "[R] "; // Hint to the legend
-            y.graph = plot->addGraph(plot->xAxis, plot->yAxis2);
-            plot->yAxis2->setVisible(true);
-        }
-        else {
-            yaxis = "[L] "; // Hint to the legend
-            y.graph = plot->addGraph();
-        }
-        //Processing attributes
-        double width = 1;
-        if (!y.y->attributes["width"].isNull()) width = y.y->attributes["width"].toDouble();
-        Qt::PenStyle style = Qt::SolidLine;
-        QString ss = y.y->attributes["style"];
-        if (ss == "dot") style = Qt::DotLine;
-        else if (ss == "dash") style = Qt::DashLine;
-        else if (ss == "dashdot") style = Qt::DashDotLine;
-        else if (ss == "dashdotdot") style = Qt::DashDotDotLine;
-        y.graph->setPen(QPen(QBrush(QColor(y.y->attributes["color"])), width, style));
-        auto name = y.y->var->desc;
-        if (y.y->var->type == Types::DOUBLEVECTORSET) name += "#" + y.y->attributes["index"];
-        y.graph->setName(yaxis + name + " (" + y.y->var->unit + ")");
-        //Synchronize curves and legends selection
-        connect(plot->legend->itemWithPlottable(y.graph), SIGNAL(selectionChanged(bool)), SLOT(syncGraphsWithLegend(bool)));
-        connect(y.graph, SIGNAL(selectionChanged(bool)), SLOT(syncLegendWithGraphs(bool)));
-    }
-    plot->setContextMenuPolicy(Qt::CustomContextMenu);// show context menu on rbuttonclick
-    connect(plot, SIGNAL(customContextMenuRequested(const QPoint&)), SLOT(showContextMenu(const QPoint&)));
+void Plot::attach(Gtk::Grid &c, int row, int col, int rowspan, int colspan) {
+    c.attach(dynamic_cast<Gtk::DrawingArea&>(*this), col, row, colspan, rowspan);
+    set_hexpand();
+    set_vexpand();
+
+    auto saveData = [this]() {
+            auto volatile &psd = mainwindow->data->paused;
+            auto state = psd;
+            psd = true;
+            auto dir = mainwindow->outputFolder();
+            fstream file;
+            auto time = Glib::DateTime::create_now_local();
+            string fname = time.format("%y%m%d:%H%M%S") + "_" + source->attributes["title"] + ".dat";
+            file.open(dir + "/" + fname, ios::out);
+            if (file.is_open()) {
+                string str = "";
+                for (auto &g : graphs) {
+                    if (str.size() > 0) str += ", ";
+                    str += g.x->var->desc;
+                    for (auto &y : g.ys) {
+                        str += ", " + y.y->var->desc;
+                    }
+                }
+                str += "\n";
+                file.write(str.data(), str.length());
+
+                long int ind = 0;
+                char buf[20];
+                bool neof = true;
+                while (neof) {
+                    neof = false;
+                    string str = "";
+                    for (auto &g : graphs) {
+                        if (g.xdata.size() <= ind) continue;
+                        neof = true;
+                        if (str.size() > 0) str += ", ";
+                        if (g.x->var->isValid) {
+                            sprintf(buf,"%e",g.xdata[ind]);
+                            str += string(buf);
+                        }
+                        for (auto &y : g.ys) {
+                            str += ", ";
+                            if (y.y->var->isValid) {
+                                sprintf(buf,"%e",y.ydata[ind]);
+                                str += string(buf);
+                            }
+                        }
+                    }
+                    str += "\n";
+                    file.write(str.data(), str.length());
+                    ind++;
+                }
+                file.close();
+            }
+            psd = state;
+        };
+
+    auto savepng = [this]() {
+        auto volatile &psd = mainwindow->data->paused;
+        auto state = psd;
+        psd = true;
+        auto dir = mainwindow->outputFolder();
+        auto time = Glib::DateTime::create_now_local();
+        string fname = dir + "/" + time.format("%y%m%d:%H%M%S") + "_" + source->attributes["title"] + ".png";
+        auto surf = Cairo::ImageSurface::create(Cairo::Format::FORMAT_ARGB32, 800, 600);
+        auto cr = Cairo::Context::create(surf);
+        makeplot(cr, 800, 600);
+        surf->write_to_png(fname);
+        psd = state;
+    };
+
+    auto savepdf = [this]() {
+        auto volatile &psd = mainwindow->data->paused;
+        auto state = psd;
+        psd = true;
+        auto dir = mainwindow->outputFolder();
+        auto time = Glib::DateTime::create_now_local();
+        string fname = dir + "/" + time.format("%y%m%d:%H%M%S") + "_" + source->attributes["title"] + ".pdf";
+        auto surf = Cairo::PdfSurface::create(fname, 800, 600);
+        auto cr = Cairo::Context::create(surf);
+        makeplot(cr, 800, 600);
+        cr->show_page();
+        psd = state;
+    };
+
+    auto pactiongroup = Gio::SimpleActionGroup::create();
+    pactiongroup->add_action("save_data", saveData);
+    pactiongroup->add_action("save_png", savepng);
+    pactiongroup->add_action("save_pdf", savepdf);
+    pactiongroup->add_action("scrollleft", sigc::bind(sigc::mem_fun(*this, &Plot::setscroll), false));
+    pactiongroup->add_action("scrollright", sigc::bind(sigc::mem_fun(*this, &Plot::setscroll), true));
+    insert_action_group("pop", pactiongroup);
+
+    auto pbuilder = Gtk::Builder::create();
+    Glib::ustring ui_info =
+  "<interface>"
+  "  <menu id='popupmenu'>"
+  "    <section>"
+  "      <item>"
+  "        <attribute name='label' translatable='no'>Save as data</attribute>"
+  "        <attribute name='action'>pop.save_data</attribute>"
+  "      </item>"
+  "      <item>"
+  "        <attribute name='label' translatable='no'>Save as png</attribute>"
+  "        <attribute name='action'>pop.save_png</attribute>"
+  "      </item>"
+  "      <item>"
+  "        <attribute name='label' translatable='no'>Save as pdf</attribute>"
+  "        <attribute name='action'>pop.save_pdf</attribute>"
+  "      </item>"
+  "    </section>"
+  "    <section>"
+  "      <item>"
+  "        <attribute name='label' translatable='no'>Scale left</attribute>"
+  "        <attribute name='action'>pop.scrollleft</attribute>"
+  "      </item>"
+  "      <item>"
+  "        <attribute name='label' translatable='no'>Scale right</attribute>"
+  "        <attribute name='action'>pop.scrollright</attribute>"
+  "      </item>"
+  "    </section>"
+  "  </menu>"
+  "</interface>";
+    pbuilder->add_from_string(ui_info);
+    auto object = pbuilder->get_object("popupmenu");
+    auto gmenu = Glib::RefPtr<Gio::Menu>::cast_dynamic(object);
+    pmenu = new Gtk::Menu(gmenu);
+    add_events(Gdk::BUTTON_PRESS_MASK);
+    add_events(Gdk::SCROLL_MASK);
 }
 
 void Plot::draw() {
-    set<QCPAxis*> usedAxes; // to enlarge axis range for second and further curves
     for (Graph &g : graphs) {
         if (!g.x->var->isValid) continue;
         if (g.x->var->needUpdate) {
-            g.xdata = QVector<double>::fromStdVector(*static_cast<vector<double>*>(g.x->var->mem)); // xdata to buffer
+            auto &xv = *static_cast<vector<double>*>(g.x->var->mem);
+            g.xdata = valarray<double>(xv.data(), xv.size()); // xdata to buffer
         }
-        for (Graph::gpair &y : g.ys) {
+        for (auto &y : g.ys) {
             if (!y.y->var->isValid) continue;
             if (y.y->var->needUpdate) {
                 vector<double> *vec;
                 if (y.y->var->type == Types::DOUBLEVECTORSET) {
                     auto &vecs = *static_cast<vector<vector<double>>*>(y.y->var->mem);
-                    size_t ind = y.y->attributes["index"].toInt();
+                    size_t ind = stoi(y.y->attributes["index"]);
                     vec = &vecs[ind];
                 }
                 else vec = static_cast<vector<double>*>(y.y->var->mem);
-                y.ydata = QVector<double>::fromStdVector(*vec); // ydata to buffer
-            }
-            if (y.y->var->needUpdate || g.x->var->needUpdate) {
-                y.graph->setData(g.xdata, y.ydata);
-                if (usedAxes.count(y.graph->valueAxis())) y.graph->rescaleAxes(true);
-                else {
-                    usedAxes.insert(y.graph->valueAxis());
-                    y.graph->rescaleAxes();
-                }
-                if (y.y->attributes.count("ymin")) y.graph->valueAxis()->setRangeLower(y.y->attributes["ymin"].toInt());
-                if (y.y->attributes.count("ymax")) y.graph->valueAxis()->setRangeUpper(y.y->attributes["ymax"].toInt());
-                if (y.y->attributes.count("ysymmetric")) {
-                    auto rang = y.graph->valueAxis()->range();
-                    double ylim = abs(rang.upper);
-                    if (abs(rang.lower) > ylim) ylim = abs(rang.lower);
-                    y.graph->valueAxis()->setRange(-ylim, ylim);
-                }
+                y.ydata = valarray<double>(vec->data(), vec->size()); // ydata to buffer
             }
         }
     }
-    plot->replot();
+    queue_draw();
 }
 
-void Plot::showContextMenu(const QPoint &point) {
-    auto savePng = [this]() {
-        auto dir = static_cast<MainWindow*>(plot->parent())->outputFolder();
-        plot->savePng(dir->absoluteFilePath(QDateTime::currentDateTime().toString("yyMMdd_hhmmss_zzz_") +
-                                            source->attributes["title"] + ".png"));
-    };
-    auto savePdf = [this]() {
-        auto dir = static_cast<MainWindow*>(plot->parent())->outputFolder();
-        plot->savePdf(dir->absoluteFilePath(QDateTime::currentDateTime().toString("yyMMdd_hhmmss_zzz_") +
-                                            source->attributes["title"] + ".pdf"));
-    };
-    auto saveData = [this](QSet<QCPGraph*> &selectedLines) {
-        vector<Graph*> selectedGraphs;
-        for (Graph &g : graphs) {
-            for (Graph::gpair &gp : g.ys) {
-                if (selectedLines.contains(gp.graph)) {
-                    selectedGraphs.push_back(&g);
-                    break;
+bool Plot::on_draw(const Cairo::RefPtr<Cairo::Context> &cr)
+{
+    auto allocation = get_allocation();
+    auto wid = allocation.get_width();
+    auto hei = allocation.get_height();
+    makeplot(cr, wid, hei, true);
+}
+
+bool Plot::on_button_press_event(GdkEventButton *event) {
+    cout << "Pressed: " << event->type << " : " << event->button << endl;
+    if ((event->type == GDK_BUTTON_PRESS) && (event->button == 3)) {
+        if (!pmenu->get_attach_widget()) pmenu->attach_to_widget(*this);
+        pmenu->popup(event->button, event->time);
+        return true; //It has been handled.
+    }
+    else
+        return false;
+}
+
+bool Plot::on_scroll_event(GdkEventScroll* event) {
+    if (event->direction == 0) {
+        int ind = scrollright ? 6 : 2;
+        int ind1 = ind + 1;
+        foundminmax[ind] = foundminmax[ind1] = 2;
+        auto range = (minmax[ind1] - minmax[ind]) * 0.25;
+        minmax[ind] += range;
+        minmax[ind1] -= range;
+    }
+    else if (event->direction == 1) {
+        int ind = scrollright ? 6 : 2;
+        int ind1 = ind + 1;
+        foundminmax[ind] = foundminmax[ind1] = 2;
+        auto range = (minmax[ind1] - minmax[ind]) * 0.5;
+        minmax[ind] -= range;
+        minmax[ind1] += range;
+    }
+    queue_draw();
+    return false;
+}
+
+void Plot::makeplot(const Cairo::RefPtr<Cairo::Context>& cr, int width, int height, bool toscr) {
+    auto &mm = minmax;
+    auto found = foundminmax;
+    bool totfound = false;
+    double mt;
+    for (auto &g : graphs) {
+        if (g.xdata.size()) {
+            if (g.x->var->isValid) {
+                mt = g.xdata.min();
+                if (!found[0]) {
+                    mm[0] = mt;
+                    found[0] = 1;
                 }
-            }
-        }
-        auto dir = static_cast<MainWindow*>(plot->parent())->outputFolder();
-        QFile file(dir->absoluteFilePath(QDateTime::currentDateTime().toString("yyMMdd_hhmmss_zzz_") +
-                                            source->attributes["title"] + ".dat"));
-        file.open(QIODevice::WriteOnly | QIODevice::Text);
-        QTextStream out(&file);
-        QString str;
-        for (Graph *g : selectedGraphs) {
-            str = str + g->x->var->desc + " (" + g->x->var->unit + "), ";
-            for (Graph::gpair &gp : g->ys) {
-                auto name = gp.y->var->desc;
-                if (gp.y->var->type == Types::DOUBLEVECTORSET) name += "#" + gp.y->attributes["index"];
-                if (selectedLines.contains(gp.graph)) str = str + name + " (" + gp.y->var->unit + "), ";
-            }
-        }
-        str.truncate(str.size() - 2);
-        out << str << endl;
-        int ind = 0;
-        bool endOfData = false;
-        while (!endOfData) {
-            str.clear();
-            endOfData = true;
-            for (Graph *g : selectedGraphs) {
-                if (g->xdata.size() > ind) {
-                    str = str + QString::number(g->xdata.at(ind)) + ", ";
-                    endOfData = false;
+                else if (found[0] == 1 && mm[0] > mt) mm[0] = mt;
+                mt = g.xdata.max();
+                if (!found[1]) {
+                    mm[1] = mt;
+                    found[1] = 1;
                 }
-                else str = str + ",";
-                for (Graph::gpair &gp : g->ys) {
-                    if (gp.ydata.size() > ind) {
-                        if (selectedLines.contains(gp.graph)) str = str + QString::number(gp.ydata.at(ind)) + ", ";
-                        endOfData = false;
+                else if (found[1] == 1 && mm[1] < mt) mm[1] = mt;
+                for (auto &y : g.ys) {
+                    if (y.y->var->isValid) {
+                        totfound = true;
+                        int ind = y.yright ? 6 : 2;
+                        mt = y.ydata.min();
+                        if (!found[ind]) {
+                            mm[ind] = mt;
+                            found[ind] = 1;
+                        }
+                        else if (found[ind] == 1 && mm[ind] > mt) mm[ind] = mt;
+                        ind++;
+                        mt = y.ydata.max();
+                        if (!found[ind]) {
+                            mm[ind] = mt;
+                            found[ind] = 1;
+                        }
+                        else if (found[ind] == 1 && mm[ind] < mt) mm[ind] = mt;
                     }
-                    else str = str + ",";
                 }
             }
-            if (!endOfData) {
-                str.truncate(str.size() - 2);
-                out << str << endl;
-            }
-            ind++;
         }
-        file.close();
-    };
-    auto saveSelected = [this, saveData]() {
-        QSet<QCPGraph*> lines = QSet<QCPGraph*>::fromList(plot->selectedGraphs());
-        saveData(lines);
-    };
-    auto saveAll = [this, saveData]() {
-        QSet<QCPGraph*> lines;
-        for (int i = 0, len = plot->graphCount(); i < len; i++) lines.insert(plot->graph(i));
-        saveData(lines);
-    };
-
-    QMenu *menu = new QMenu(plot);
-    menu->move(plot->pos() + point);
-    if (plot->selectedGraphs().size() > 0) menu->addAction("Save selected as data", saveSelected);
-    menu->addSeparator();
-    menu->addAction("Save all as data", saveAll);
-    menu->addAction("Save all as png", savePng);
-    menu->addAction("Save all as pdf", savePdf);
-    menu->exec();
-    delete menu;
-}
-
-void Plot::syncGraphsWithLegend(bool hz) {
-    for (int i = 0, len = plot->legend->itemCount(); i < len; i++) {
-        auto it = static_cast<QCPPlottableLegendItem*>(plot->legend->item(i));
-        if (it != nullptr) it->plottable()->
-                setSelection(QCPDataSelection(QCPDataRange(0,
-                                                           plot->legend->item(i)->selected())));
     }
-}
 
-void Plot::syncLegendWithGraphs(bool hz) {
-    QSet<QCPGraph*> set = QSet<QCPGraph*>::fromList(plot->selectedGraphs());
-    for (int i = 0, len = plot->graphCount(); i < len; i++) {
-        plot->legend->itemWithPlottable(plot->graph(i))->setSelected(set.contains(plot->graph(i)));
+    if (totfound) {
+        auto pls = new plstream;
+        pls->sdev("extcairo");
+        pls->spage(0, 0, width, height, 0, 0);
+        pls->init();
+        pls->cmd(PLESC_DEVINIT, cr->cobj());
+
+        pls->col0(0);
+        pls->schr(3.5, 1);
+        pls->adv(0);
+        pls->vsta();
+        pls->wind(mm[0],mm[1],mm[2],mm[3]);
+        pls->box("bnts", 0, 0, "", 0, 0);
+        if (needlefty) {
+            pls->wind(mm[0],mm[1],mm[2],mm[3]);
+            if (scrollright || !toscr) pls->width(1);
+            else pls->width(2);
+            pls->box("", 0, 0, "bnts", 0, 0);
+        }
+        if (needrighty) {
+            pls->wind(mm[0],mm[1],mm[6],mm[7]);
+            if (scrollright && toscr) pls->width(2);
+            else pls->width(1);
+            pls->box("", 0, 0, "cmts", 0, 0);
+        }
+        pls->sfont(0, 0, 1);
+        pls->lab("", "", source->attributes["title"].data());
+        pls->sfont(0, 0, 0);
+        pls->lab(xtitle.data(), "", "");
+        pls->col0(0);
+        PLINT m1(200), s1(2000);
+        pls->styl(1, &m1, &s1);
+        if (needlefty) pls->wind(mm[0],mm[1],mm[2],mm[3]);
+        pls->width(1);
+        pls->box("g", 0, 0, "g", 0, 0);
+
+        for (auto &g : graphs) {
+            auto &xvec = g.xdata;
+            auto sz = xvec.size();
+            if (g.x->var->isValid && sz) {
+                for (auto &y : g.ys) {
+                    if (y.y->var->isValid) {
+                        int ind = y.yright ? 6 : 2;
+                        pls->wind(mm[0], mm[1], mm[ind], mm[ind + 1]);
+                        auto &yvec = y.ydata;
+                        pls->col0(y.color);
+                        pls->styl(y.draws.size(), &y.draws[0], &y.spaces[0]);
+                        pls->width(y.width);
+                        pls->line(sz, &xvec[0], &yvec[0]);
+                    }
+                }
+            }
+        }
+        pls->width(1);
+        pls->legend(&legend.legend_width, &legend.legend_height,
+            //0, PL_POSITION_BOTTOM | PL_POSITION_OUTSIDE,
+            PL_LEGEND_BOUNDING_BOX | PL_LEGEND_BACKGROUND, PL_POSITION_RIGHT | PL_POSITION_TOP,
+            0.01, 0.01, 0.1, 15,
+            0, 0, 1, 0,
+            legend.nlegend, legend.opt_array.data(),
+            1.0, 1.0, 2.0,
+            1., legend.text_colors.data(), legend.texts.data(),
+            NULL, NULL, NULL, NULL,
+            legend.line_colors.data(), legend.line_styles.data(), legend.line_widths.data(),
+            NULL, NULL,NULL, NULL);
+        delete pls;
     }
 }
