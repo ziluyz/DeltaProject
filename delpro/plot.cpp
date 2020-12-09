@@ -440,7 +440,7 @@ void Plot::makeplot(const Cairo::RefPtr<Cairo::Context>& cr, int width, int heig
             //0, PL_POSITION_BOTTOM | PL_POSITION_OUTSIDE,
             PL_LEGEND_BOUNDING_BOX | PL_LEGEND_BACKGROUND, PL_POSITION_RIGHT | PL_POSITION_TOP,
             0.01, 0.01, 0.1, 15,
-            0, 0, 1, 0,
+            0, 1, 1, 0,
             legend.nlegend, legend.opt_array.data(),
             1.0, 1.0, 2.0,
             1., legend.text_colors.data(), legend.texts.data(),
