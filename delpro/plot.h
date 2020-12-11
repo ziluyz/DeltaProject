@@ -46,15 +46,16 @@ private:
         vector<PLFLT> line_widths;
         vector<char*> texts;
     };
-    vector<double> minmax;
-    vector<int> foundminmax;
+    vector<double> minmax1, minmax2;
+    vector<int> foundminmax1, foundminmax2;
     bool needlefty, needrighty;
+    double vxmin, vxmax, vymin, vymax;
     const static unordered_map<string, int> colorind;
     vector<Graph> graphs; // vector.size = number of different xtags in this ScreenOutput
     Legend legend;
     string xtitle;
     Gtk::Menu *pmenu;
-    bool scrollright;
+    int scrollaxis; // 0 - x, 1 - y1, 2 - y2
     void makeplot(const Cairo::RefPtr<Cairo::Context>&, int, int, bool = false);
 
 protected:
@@ -66,7 +67,6 @@ public:
     Plot(MainWindow*, ScreenOutput*);
     void attach(Gtk::Grid& c, int row, int col, int rowspan, int colspan) override;
     void draw() override;
-    void setscroll(bool right) {scrollright = right; queue_draw();};
     ~Plot() {if (pmenu!=nullptr) delete pmenu;};
 };
 

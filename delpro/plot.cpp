@@ -14,7 +14,7 @@ const unordered_map<string, int> Plot::colorind {
     {"brown", 8}
 };
 
-Plot::Plot(MainWindow *wnd, ScreenOutput *sout) : Wgt(wnd, sout), minmax(8), foundminmax(8 ,0), needlefty(false), needrighty(false) {
+Plot::Plot(MainWindow *wnd, ScreenOutput *sout) : Wgt(wnd, sout), minmax1(8), foundminmax1(8 ,0), needlefty(false), needrighty(false) {
     //Find Graph with given xtag
     auto find = [](const string &xtag, vector<Graph> &gs) {
         for (auto &g : gs) {
@@ -91,32 +91,32 @@ Plot::Plot(MainWindow *wnd, ScreenOutput *sout) : Wgt(wnd, sout), minmax(8), fou
             //extract ylimits
             if (item.attributes.count("ymin")) {
                 int ind = y.yright ? 6 : 2;
-                if (!foundminmax[ind]) {
-                    minmax[ind] = stod(item.attributes["ymin"]);
-                    foundminmax[ind] = 2;
+                if (!foundminmax1[ind]) {
+                    minmax1[ind] = stod(item.attributes["ymin"]);
+                    foundminmax1[ind] = 2;
                 }
             }
             if (item.attributes.count("ymax")) {
                 int ind = y.yright ? 7 : 3;
-                if (!foundminmax[ind]) {
-                    minmax[ind] = stod(item.attributes["ymax"]);
-                    foundminmax[ind] = 2;
+                if (!foundminmax1[ind]) {
+                    minmax1[ind] = stod(item.attributes["ymax"]);
+                    foundminmax1[ind] = 2;
                 }
             }
             if (item.attributes.count("ysymmetric") && item.attributes["ysymmetric"] == "true") {
                 int ind = y.yright ? 6 : 2;
-                auto min = abs(minmax[ind]);
-                auto max = abs(minmax[ind + 1]);
-                if (foundminmax[ind] && foundminmax[ind + 1]) {
+                auto min = abs(minmax1[ind]);
+                auto max = abs(minmax1[ind + 1]);
+                if (foundminmax1[ind] && foundminmax1[ind + 1]) {
                     if (min > max) max = min;
-                    minmax[ind] = -max;
-                    minmax[ind + 1] = max;
+                    minmax1[ind] = -max;
+                    minmax1[ind + 1] = max;
                 }
-                else if (foundminmax[ind]) {
-                    if (minmax[ind] < 0) minmax[ind + 1] = min;
+                else if (foundminmax1[ind]) {
+                    if (minmax1[ind] < 0) minmax1[ind + 1] = min;
                 }
-                else if (foundminmax[ind + 1]) {
-                    if (minmax[ind + 1] > 0) minmax[ind] = -max;
+                else if (foundminmax1[ind + 1]) {
+                    if (minmax1[ind + 1] > 0) minmax1[ind] = -max;
                 }
             }
             //extract title
@@ -141,7 +141,9 @@ Plot::Plot(MainWindow *wnd, ScreenOutput *sout) : Wgt(wnd, sout), minmax(8), fou
         if (g.ys.size() == 0) throw string("No xref for xtag") + g.xtag;
     }
     legend.nlegend = legend.opt_array.size();
-    scrollright = !needlefty;
+    minmax2 = minmax1;
+    foundminmax2 = foundminmax1;
+    scrollaxis = needlefty ? 1 : 2;
 }
 
 void Plot::attach(Gtk::Grid &c, int row, int col, int rowspan, int colspan) {
@@ -229,12 +231,25 @@ void Plot::attach(Gtk::Grid &c, int row, int col, int rowspan, int colspan) {
         psd = state;
     };
 
+    auto setscroll = [this](int axis) {
+        scrollaxis = axis;
+        queue_draw();
+    };
+
+    auto reset = [this]() {
+        minmax2 = minmax1;
+        foundminmax2 = foundminmax1;
+        queue_draw();
+    };
+
     auto pactiongroup = Gio::SimpleActionGroup::create();
     pactiongroup->add_action("save_data", saveData);
     pactiongroup->add_action("save_png", savepng);
     pactiongroup->add_action("save_pdf", savepdf);
-    pactiongroup->add_action("scrollleft", sigc::bind(sigc::mem_fun(*this, &Plot::setscroll), false));
-    pactiongroup->add_action("scrollright", sigc::bind(sigc::mem_fun(*this, &Plot::setscroll), true));
+    pactiongroup->add_action("scrollbottom", sigc::bind(setscroll, 0));
+    pactiongroup->add_action("scrollleft", sigc::bind(setscroll, 1));
+    pactiongroup->add_action("scrollright", sigc::bind(setscroll, 2));
+    pactiongroup->add_action("reset", reset);
     insert_action_group("pop", pactiongroup);
 
     auto pbuilder = Gtk::Builder::create();
@@ -257,12 +272,20 @@ void Plot::attach(Gtk::Grid &c, int row, int col, int rowspan, int colspan) {
   "    </section>"
   "    <section>"
   "      <item>"
+  "        <attribute name='label' translatable='no'>Scale x</attribute>"
+  "        <attribute name='action'>pop.scrollbottom</attribute>"
+  "      </item>"
+  "      <item>"
   "        <attribute name='label' translatable='no'>Scale left</attribute>"
   "        <attribute name='action'>pop.scrollleft</attribute>"
   "      </item>"
   "      <item>"
   "        <attribute name='label' translatable='no'>Scale right</attribute>"
   "        <attribute name='action'>pop.scrollright</attribute>"
+  "      </item>"
+  "      <item>"
+  "        <attribute name='label' translatable='no'>Reset view</attribute>"
+  "        <attribute name='action'>pop.reset</attribute>"
   "      </item>"
   "    </section>"
   "  </menu>"
@@ -319,29 +342,30 @@ bool Plot::on_button_press_event(GdkEventButton *event) {
 }
 
 bool Plot::on_scroll_event(GdkEventScroll* event) {
-    if (event->direction == 0) {
-        int ind = scrollright ? 6 : 2;
-        int ind1 = ind + 1;
-        foundminmax[ind] = foundminmax[ind1] = 2;
-        auto range = (minmax[ind1] - minmax[ind]) * 0.25;
-        minmax[ind] += range;
-        minmax[ind1] -= range;
+    if (event->x < vxmin || event->x > vxmax || event->y < vymin || event->y > vymax) return false;
+    double mu = 2;
+    if (event->direction == 0) mu = 0.5;
+    double s;
+    int ind = 0;
+    if (scrollaxis) {
+        s = 1. - (event->y - vymin) / (vymax - vymin);
+        ind = scrollaxis == 2 ? 6 : 2;
     }
-    else if (event->direction == 1) {
-        int ind = scrollright ? 6 : 2;
-        int ind1 = ind + 1;
-        foundminmax[ind] = foundminmax[ind1] = 2;
-        auto range = (minmax[ind1] - minmax[ind]) * 0.5;
-        minmax[ind] -= range;
-        minmax[ind1] += range;
+    else {
+        s = (event->x - vxmin) / (vxmax - vxmin);
     }
+    int ind1 = ind + 1;
+    foundminmax2[ind] = foundminmax2[ind1] = 2;
+    auto range = minmax2[ind1] - minmax2[ind];
+    minmax2[ind] = minmax2[ind] + s * (1 - mu) * range;
+    minmax2[ind1] = minmax2[ind1] + (mu - 1 + s * (1 - mu)) * range;
     queue_draw();
     return false;
 }
 
 void Plot::makeplot(const Cairo::RefPtr<Cairo::Context>& cr, int width, int height, bool toscr) {
-    auto &mm = minmax;
-    auto found = foundminmax;
+    auto &mm = minmax2;
+    auto found = foundminmax2;
     bool totfound = false;
     double mt;
     for (auto &g : graphs) {
@@ -393,17 +417,27 @@ void Plot::makeplot(const Cairo::RefPtr<Cairo::Context>& cr, int width, int heig
         pls->schr(3.5, 1);
         pls->adv(0);
         pls->vsta();
+        if (toscr) {
+            double xmin, xmax, ymin, ymax;
+            pls->gvpd(xmin, xmax, ymin, ymax);
+            vxmin = width * xmin;
+            vxmax = width * xmax;
+            vymin = height * ymin;
+            vymax = height * ymax;
+        }
         pls->wind(mm[0],mm[1],mm[2],mm[3]);
+        if (scrollaxis) pls->width(1);
+        else pls->width(2);
         pls->box("bnts", 0, 0, "", 0, 0);
         if (needlefty) {
             pls->wind(mm[0],mm[1],mm[2],mm[3]);
-            if (scrollright || !toscr) pls->width(1);
+            if (scrollaxis != 1 || !toscr) pls->width(1);
             else pls->width(2);
             pls->box("", 0, 0, "bnts", 0, 0);
         }
         if (needrighty) {
             pls->wind(mm[0],mm[1],mm[6],mm[7]);
-            if (scrollright && toscr) pls->width(2);
+            if (scrollaxis == 2 && toscr) pls->width(2);
             else pls->width(1);
             pls->box("", 0, 0, "cmts", 0, 0);
         }
