@@ -198,12 +198,13 @@ double ArgumentZeroSearcher::eval(const ArgumentZeroSearcher::Point &p, bool loo
     }
     neval++;
     auto res = func(p);
-    if (res.real() < acc || neval > 3000) {
+    if (abs(res) < acc || neval > 3000) {
         found = true;
         zsol = p;
     }
-    if (lookHash) mem[hash] = res.imag();
-    return res.imag();
+    auto phase = arg(res);
+    if (lookHash) mem[hash] = phase;
+    return phase;
 }
 
 bool ArgumentZeroSearcher::addPhaseOnEdge(ArgumentZeroSearcher::Edge e, double &phase, bool lookHash) {
@@ -278,12 +279,67 @@ bool ArgumentZeroSearcher::findZero() {
     return true;
 }
 
-bool ArgumentZeroSearcher::find(const function<CMPLX(CMPLX)> &func, ArgumentZeroSearcher::Rect minmax, double acc, CMPLX &z) {
+bool ArgumentZeroSearcher::find(const function<CMPLX(CMPLX)> &func, RectBound minmax, double acc, CMPLX &z) {
     ArgumentZeroSearcher sr(func, minmax, acc);
     auto ok = sr.findZero();
     if (ok) z = sr.zsol;
     //cout << "Number of calls: " << sr.neval << endl;
     return ok;
+}
+
+CMPLX MullerZeroSearcher::proceed(CMPLX z) {
+    if (n == 1) {
+        z1 = z;
+        f1 = func(z);
+        n = 2;
+        found = abs(f1) < acc;
+        return z;
+    }
+    if (n == 2) {
+        z2 = z;
+        f2 = func(z);
+        f12 = (f2 - f1) / (z2 - z1);
+        n = 0;
+        found = abs(f2) < acc;
+        return z;
+    }
+    auto f3 = func(z);
+    if (abs(f3) < acc) {
+        found = true;
+        return z;
+    }
+    auto f23 = (f3 - f2) / (z - z2);
+    auto f123 = (f23 - f12) / (z - z1);
+    auto w = f23 + (z - z2) * f123;
+    auto sp = sqrt(w * w - 4. * f3 * f123);
+    auto p = w + sp;
+    auto p1 = w - sp;
+    if (abs(p1) > abs(p)) p = p1;
+    z1 = z2;
+    z2 = z;
+    f1 = f2;
+    f2 = f3;
+    f12 = f23;
+    return z - 2. * f3 / p;
+}
+
+bool MullerZeroSearcher::find(const function<CMPLX(CMPLX)> &func, RectBound minmax, double acc, CMPLX &z) {
+    MullerZeroSearcher sr(func, acc);
+    z = CMPLX(0.95 * minmax.xmin + 0.05 * minmax.xmax, 0.95 * minmax.ymax + 0.05 * minmax.ymin);
+    sr.proceed(z);
+    if (sr.found) return true;
+    z = CMPLX(0.05 * minmax.xmin + 0.95 * minmax.xmax, 0.95 * minmax.ymax + 0.05 * minmax.ymin);
+    sr.proceed(z);
+    if (sr.found) return true;
+    z = CMPLX(0.5 * minmax.xmin + 0.5 * minmax.xmax, 0.05 * minmax.ymax + 0.95 * minmax.ymin);
+    while (!sr.found) {
+        z = sr.proceed(z);
+        if (z.real() < minmax.xmin) return false;
+        if (z.real() > minmax.xmax) return false;
+        if (z.imag() < minmax.ymin) return false;
+        if (z.imag() > minmax.ymax) return false;
+    }
+    return true;
 }
 
 }

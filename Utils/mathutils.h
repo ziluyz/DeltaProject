@@ -8,6 +8,8 @@
 
 namespace mut {
 
+struct RectBound {double xmin, xmax, ymin, ymax;};
+
 //Find zero by bisections
 bool findRoot(const std::function<double(double)> &fcn, double xMin, double xMax, double absErr, double &res);
 
@@ -27,10 +29,6 @@ class Runge4 {
 };
 
 class ArgumentZeroSearcher {
-public:
-    struct Rect {
-        double xmin, xmax, ymin, ymax;
-    };
 
 private:
     class BinCoord {
@@ -84,13 +82,13 @@ private:
     };
 
     const std::function<CMPLX(CMPLX)> &func;
-    Rect minmax;
+    RectBound minmax;
     double acc;
     bool found = false;
     CMPLX zsol;
     int neval = 0;
     std::unordered_map<unsigned long long, double> mem;
-    ArgumentZeroSearcher(const std::function<CMPLX(CMPLX)> &func, Rect minmax, double acc) : func(func), minmax(minmax), acc(acc) {}
+    ArgumentZeroSearcher(const std::function<CMPLX(CMPLX)> &func, RectBound minmax, double acc) : func(func), minmax(minmax), acc(acc) {}
     double eval(const Point &p, bool lookHash);
     bool addPhaseOnEdge(Edge e, double &phase, bool lookHash = true);
     bool checkCell(const Cell &c, bool &result);
@@ -99,7 +97,20 @@ private:
     bool findZero();
 
 public:
-    static bool find(const std::function<CMPLX(CMPLX)> &func, Rect minmax, double acc, CMPLX &z);
+    static bool find(const std::function<CMPLX(CMPLX)> &func, RectBound minmax, double acc, CMPLX &z);
+};
+
+class MullerZeroSearcher {
+private:
+    int n = 1;
+    CMPLX z1, z2, f1, f2, f12;
+    const std::function<CMPLX(CMPLX)> &func;
+    double acc;
+    bool found = false;
+    MullerZeroSearcher(const std::function<CMPLX(CMPLX)> &func, double acc) : func(func), acc(acc) {}
+    CMPLX proceed(CMPLX z);
+public:
+    static bool find(const std::function<CMPLX(CMPLX)> &func, RectBound minmax, double acc, CMPLX &z);
 };
 
 }
