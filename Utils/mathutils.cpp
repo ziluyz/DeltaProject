@@ -342,4 +342,113 @@ bool MullerZeroSearcher::find(const function<CMPLX(CMPLX)> &func, RectBound minm
     return true;
 }
 
+bool Follower::makeStep() {
+    bool ok;
+    int bound;
+    do {
+        ok = method([this](CMPLX z) { return func(z); },
+                    minmax, acc, z);
+        bound = 0;
+        if (!ok) {
+            double d = (minmax.xmax - minmax.xmin) / 2;
+            minmax.xmin -= d;
+            if (minmax.xmin < gminmax.xmin) {
+                minmax.xmin = gminmax.xmin;
+                bound++;
+            }
+            minmax.xmax += d;
+            if (minmax.xmax > gminmax.xmax) {
+                minmax.xmax = gminmax.xmax;
+                bound++;
+            }
+            d = (minmax.ymax - minmax.ymin) / 2;
+            minmax.ymin -= d;
+            if (minmax.ymin < gminmax.ymin) {
+                minmax.ymin = gminmax.ymin;
+                bound++;
+            }
+            minmax.ymax += d;
+            if (minmax.ymax > gminmax.ymax) {
+                minmax.ymax = gminmax.ymax;
+                bound++;
+            }
+        }
+    } while (!ok && bound < 4);
+    return ok;
+}
+
+void Follower::checkLimits() {
+    if (minmax.xmin < gminmax.xmin) minmax.xmin = gminmax.xmin;
+    if (minmax.xmin > gminmax.xmax) minmax.xmin = gminmax.xmax;
+    if (minmax.xmax < gminmax.xmin) minmax.xmax = gminmax.xmin;
+    if (minmax.xmax > gminmax.xmax) minmax.xmax = gminmax.xmax;
+    if (minmax.ymin < gminmax.ymin) minmax.ymin = gminmax.ymin;
+    if (minmax.ymin > gminmax.ymax) minmax.ymin = gminmax.ymax;
+    if (minmax.ymax < gminmax.ymin) minmax.ymax = gminmax.ymin;
+    if (minmax.ymax > gminmax.ymax) minmax.ymax = gminmax.ymax;
+}
+
+bool Follower::follow() {
+    double p;
+    prepare(p = freeVar(0));
+    if (!makeStep()) return false;
+    process(p, z);
+    if (npoints < 2) return true;
+    auto p1 = p;
+    auto z1 = z;
+    prepare(p = freeVar(1));
+    if (!makeStep()) return false;
+    process(p, z);
+    if (npoints == 2) return true;
+    auto p2 = p;
+    auto z2 = z;
+    auto d12 = (z2 - z1) / (p2 - p1);
+    prepare(p = freeVar(2));
+    auto b = z2 - d12 * p2;
+    auto fz = d12 * p + b;
+    auto dz = fz - z2;
+    minmax.xmin = fz.real() - 3.0 * abs(dz.real());
+    minmax.xmax = fz.real() + 3.0 * abs(dz.real());
+    minmax.ymin = fz.imag() - 3.0 * abs(dz.imag());
+    minmax.ymax = fz.imag() + 3.0 * abs(dz.imag());
+    checkLimits();
+    if (!makeStep()) return false;
+    process(p, z);
+    auto p3 = p;
+    auto z3 = z;
+    for (int i = 3; i < npoints; i++) {
+        prepare(p = freeVar(i));
+        auto d23 = (z3 - z2) / (p3 - p2);
+        auto d34 = d23 + (d23 - d12) * (p - p2) / (p3 - p1);
+        fz = z3 + d34 * (p - p3);
+        dz = fz - z3;
+        minmax.xmin = fz.real() - 0.1 * abs(dz.real());
+        minmax.xmax = fz.real() + 0.1 * abs(dz.real());
+        minmax.ymin = fz.imag() - 0.1 * abs(dz.imag());
+        minmax.ymax = fz.imag() + 0.1 * abs(dz.imag());
+        checkLimits();
+        if (!makeStep()) return false;
+        process(p, z);
+        z1 = z2;
+        z2 = z3;
+        z3 = z;
+        p1 = p2;
+        p2 = p3;
+        p3 = p;
+        d12 = d23;
+    }
+    return true;
+}
+
+void Follower::scan(int N,
+            const std::function<double(int)> &freeVar,
+            const std::function<void(double)> &prepare,
+            const std::function<bool(const std::function<CMPLX(CMPLX)> &func, RectBound minmax, double acc, CMPLX &z)> &method,
+            const std::function<CMPLX(CMPLX)> &func,
+            const std::function<void(double, CMPLX)> &process,
+            RectBound gminmax, RectBound minmax, double acc) {
+    Follower fwr(N, minmax, gminmax, acc, freeVar, prepare, method, func, process);
+    fwr.follow();
+}
+
 }

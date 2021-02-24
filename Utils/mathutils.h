@@ -113,4 +113,36 @@ public:
     static bool find(const std::function<CMPLX(CMPLX)> &func, RectBound minmax, double acc, CMPLX &z);
 };
 
+class Follower {
+private:
+    int npoints;
+    RectBound minmax, gminmax;
+    double acc;
+    const std::function<double(int)> &freeVar;
+    const std::function<void(double)> &prepare;
+    const std::function<bool(const std::function<CMPLX(CMPLX)> &, RectBound, double, CMPLX &)> &method;
+    const std::function<CMPLX(CMPLX)> &func;
+    const std::function<void(double, CMPLX)> &process;
+    CMPLX z;
+    Follower(int N, RectBound minmax, RectBound gminmax, double acc,
+            const std::function<double(int)> &freeVar,
+            const std::function<void(double)> &prepare,
+            const std::function<bool(const std::function<CMPLX(CMPLX)> &, RectBound, double, CMPLX &)> &method,
+            const std::function<CMPLX(CMPLX)> &func,
+            const std::function<void(double, CMPLX)> &process) : npoints(N), minmax(minmax), gminmax(gminmax), acc(acc),
+                freeVar(freeVar), prepare(prepare), method(method), func(func), process(process) {}
+    bool makeStep();
+    void checkLimits();
+    bool follow();
+
+public:
+    static void scan(int N,
+            const std::function<double(int)> &freeVar,
+            const std::function<void(double)> &prepare,
+            const std::function<bool(const std::function<CMPLX(CMPLX)> &func, RectBound minmax, double acc, CMPLX &z)> &method,
+            const std::function<CMPLX(CMPLX)> &func,
+            const std::function<void(double, CMPLX)> &process,
+            RectBound gminmax, RectBound minmax, double acc);
+};
+
 }
